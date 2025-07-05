@@ -165,29 +165,13 @@ export default function AnswerSection({
       </div>
       
       <div className="px-6 py-6">
-        <div className="relative">
-          <Textarea
-            value={answer}
-            onChange={(e) => handleAnswerChange(e.target.value)}
-            placeholder="Type your final answer here..."
-            className="w-full h-64 p-4 pr-12 border border-slate-300 rounded-lg focus:ring-2 focus:ring-academic-blue focus:border-academic-blue resize-none"
-            disabled={isSubmitted || isRecording}
-          />
-          <Button 
-            onClick={toggleRecording}
-            disabled={isSubmitted || isTranscribing}
-            className={`absolute top-2 right-2 ${isRecording ? 'bg-academic-red hover:bg-red-700' : 'bg-slate-500 hover:bg-slate-600'}`}
-            size="sm"
-          >
-            {isTranscribing ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
-            ) : isRecording ? (
-              <Square className="w-4 h-4" />
-            ) : (
-              <Mic className="w-4 h-4" />
-            )}
-          </Button>
-        </div>
+        <Textarea
+          value={answer}
+          onChange={(e) => handleAnswerChange(e.target.value)}
+          placeholder="Type your final answer here..."
+          className="w-full h-64 p-4 border border-slate-300 rounded-lg focus:ring-2 focus:ring-academic-blue focus:border-academic-blue resize-none"
+          disabled={isSubmitted || isRecording}
+        />
         
         <div className="flex justify-between items-center mt-4">
           <div className="text-sm text-slate-500">
@@ -197,13 +181,29 @@ export default function AnswerSection({
             {isRecording && <span className="ml-2 text-academic-red">• Recording...</span>}
             {isTranscribing && <span className="ml-2 text-academic-blue">• Transcribing...</span>}
           </div>
-          <Button
-            onClick={handleSubmit}
-            disabled={isSubmitted || isRecording || isTranscribing}
-            className="bg-academic-blue text-white hover:bg-blue-700"
-          >
-            {isSubmitted ? "Submitted" : "Submit Answer"}
-          </Button>
+          <div className="flex items-center space-x-2">
+            <Button 
+              onClick={toggleRecording}
+              disabled={isSubmitted || isTranscribing}
+              className={`${isRecording ? 'bg-academic-red hover:bg-red-700' : 'bg-slate-500 hover:bg-slate-600'}`}
+              size="sm"
+            >
+              {isTranscribing ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : isRecording ? (
+                <Square className="w-4 h-4" />
+              ) : (
+                <Mic className="w-4 h-4" />
+              )}
+            </Button>
+            <Button
+              onClick={handleSubmit}
+              disabled={isSubmitted || isRecording || isTranscribing}
+              className="bg-academic-blue text-white hover:bg-blue-700"
+            >
+              {isSubmitted ? "Submitted" : "Submit Answer"}
+            </Button>
+          </div>
         </div>
       </div>
     </div>

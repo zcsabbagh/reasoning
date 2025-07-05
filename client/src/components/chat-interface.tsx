@@ -29,6 +29,7 @@ export default function ChatInterface({
   const [mediaRecorder, setMediaRecorder] = useState<MediaRecorder | null>(null);
   const { toast } = useToast();
   const scrollRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
     loadChatHistory();
@@ -119,12 +120,29 @@ export default function ChatInterface({
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    setInputValue(e.target.value);
+    const value = e.target.value;
+    setInputValue(value);
+    
     // Auto-expand textarea
-    const textarea = e.target;
-    textarea.style.height = 'auto';
-    textarea.style.height = Math.min(textarea.scrollHeight, 120) + 'px';
+    setTimeout(() => {
+      if (textareaRef.current) {
+        textareaRef.current.style.height = '40px'; // Reset to minimum height
+        const scrollHeight = textareaRef.current.scrollHeight;
+        const maxHeight = 120;
+        textareaRef.current.style.height = Math.min(scrollHeight, maxHeight) + 'px';
+      }
+    }, 0);
   };
+
+  // Auto-expand textarea when input value changes
+  useEffect(() => {
+    if (textareaRef.current) {
+      textareaRef.current.style.height = '40px'; // Reset to minimum height
+      const scrollHeight = textareaRef.current.scrollHeight;
+      const maxHeight = 120;
+      textareaRef.current.style.height = Math.min(scrollHeight, maxHeight) + 'px';
+    }
+  }, [inputValue]);
 
   const startRecording = async () => {
     try {
@@ -287,6 +305,7 @@ export default function ChatInterface({
       <div className="px-6 py-4 border-t border-slate-200">
         <div className="flex items-end space-x-2">
           <Textarea
+            ref={textareaRef}
             value={inputValue}
             onChange={handleInputChange}
             onKeyDown={handleKeyPress}
