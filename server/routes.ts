@@ -46,10 +46,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.use(passport.initialize());
   app.use(passport.session());
 
-  // Configure LinkedIn OAuth strategy
-  const baseURL = process.env.REPLIT_DEV_DOMAIN 
-    ? `https://${process.env.REPLIT_DEV_DOMAIN}`
-    : "https://test-interaction-site-zcsabbagh.replit.app";
+  // Configure LinkedIn OAuth strategy - detect environment automatically
+  const getBaseURL = () => {
+    // Check for deployment domain first
+    if (process.env.REPL_SLUG && process.env.REPL_OWNER) {
+      return `https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co`;
+    }
+    // Then check for development domain
+    if (process.env.REPLIT_DEV_DOMAIN) {
+      return `https://${process.env.REPLIT_DEV_DOMAIN}`;
+    }
+    // Fallback to configured domain
+    return "https://test-interaction-site-zcsabbagh.replit.app";
+  };
+  
+  const baseURL = getBaseURL();
   const callbackURL = `${baseURL}/auth/linkedin/callback`;
   
   console.log('LinkedIn OAuth Configuration:');
@@ -61,7 +72,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     clientID: process.env.LINKEDIN_CLIENT_ID!,
     clientSecret: process.env.LINKEDIN_CLIENT_SECRET!,
     callbackURL: callbackURL,
-    scope: ['r_emailaddress', 'r_liteprofile']
+    scope: ['r_liteprofile']
   }, async (accessToken: any, refreshToken: any, profile: any, done: any) => {
     try {
       console.log('LinkedIn OAuth profile received:', JSON.stringify(profile, null, 2));
