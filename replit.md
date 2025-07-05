@@ -84,6 +84,9 @@ This is a full-stack academic test platform application built with React and Exp
 - July 05, 2025. Implemented multi-question progression (30 min + 10 min + 10 min)
 - July 05, 2025. Enhanced chat interface with markdown formatting and immediate message display
 - July 05, 2025. Added AI-generated follow-up questions based on original question
+- July 05, 2025. Integrated Groq transcription as primary service with OpenAI fallback
+- July 05, 2025. Added voice recording to final answer text box
+- July 05, 2025. Made chat input expandable for longer clarifying questions
 
 ## User Preferences
 

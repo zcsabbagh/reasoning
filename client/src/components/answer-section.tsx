@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
+import { Mic, Square, Loader2 } from "lucide-react";
 
 interface AnswerSectionProps {
   initialAnswer: string;
@@ -17,6 +18,9 @@ export default function AnswerSection({
   isSubmitted 
 }: AnswerSectionProps) {
   const [answer, setAnswer] = useState(initialAnswer);
+  const [isRecording, setIsRecording] = useState(false);
+  const [isTranscribing, setIsTranscribing] = useState(false);
+  const [mediaRecorder, setMediaRecorder] = useState<MediaRecorder | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -57,6 +61,102 @@ export default function AnswerSection({
     onSubmit(answer);
   };
 
+  const startRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const recorder = new MediaRecorder(stream, {
+        mimeType: MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : 'audio/mp4'
+      });
+      
+      const chunks: Blob[] = [];
+      
+      recorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          chunks.push(event.data);
+        }
+      };
+      
+      recorder.onstop = async () => {
+        const mimeType = recorder.mimeType || 'audio/webm';
+        const audioBlob = new Blob(chunks, { type: mimeType });
+        await transcribeAudio(audioBlob);
+        // Stop all tracks to release microphone
+        stream.getTracks().forEach(track => track.stop());
+      };
+      
+      setMediaRecorder(recorder);
+      setIsRecording(true);
+      recorder.start();
+      
+      toast({
+        title: "Recording Started",
+        description: "Speak your answer. Click the stop button to finish recording.",
+      });
+    } catch (error) {
+      console.error("Error starting recording:", error);
+      toast({
+        title: "Microphone Access Denied",
+        description: "Please allow microphone access to use voice recording.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const stopRecording = () => {
+    if (mediaRecorder && mediaRecorder.state !== "inactive") {
+      mediaRecorder.stop();
+      setIsRecording(false);
+      setIsTranscribing(true);
+    }
+  };
+
+  const transcribeAudio = async (audioBlob: Blob) => {
+    try {
+      const formData = new FormData();
+      const filename = audioBlob.type.includes('webm') ? 'recording.webm' : 'recording.mp4';
+      formData.append('audio', audioBlob, filename);
+      
+      // Use fetch directly for file upload
+      const response = await fetch('/api/transcribe', {
+        method: 'POST',
+        body: formData
+      });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const { text } = await response.json();
+      
+      // Append transcribed text to current answer
+      const newAnswer = answer ? answer + " " + text : text;
+      setAnswer(newAnswer);
+      handleAnswerChange(newAnswer);
+      
+      toast({
+        title: "Transcription Complete",
+        description: "Your voice has been added to your answer.",
+      });
+    } catch (error) {
+      console.error("Error transcribing audio:", error);
+      toast({
+        title: "Transcription Failed",
+        description: "Failed to transcribe audio. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsTranscribing(false);
+    }
+  };
+
+  const toggleRecording = () => {
+    if (isRecording) {
+      stopRecording();
+    } else {
+      startRecording();
+    }
+  };
+
   return (
     <div className="bg-white rounded-lg shadow-sm border border-slate-200">
       <div className="px-6 py-4 border-b border-slate-200">
@@ -65,23 +165,41 @@ export default function AnswerSection({
       </div>
       
       <div className="px-6 py-6">
-        <Textarea
-          value={answer}
-          onChange={(e) => handleAnswerChange(e.target.value)}
-          placeholder="Type your final answer here..."
-          className="w-full h-64 p-4 border border-slate-300 rounded-lg focus:ring-2 focus:ring-academic-blue focus:border-academic-blue resize-none"
-          disabled={isSubmitted}
-        />
+        <div className="relative">
+          <Textarea
+            value={answer}
+            onChange={(e) => handleAnswerChange(e.target.value)}
+            placeholder="Type your final answer here..."
+            className="w-full h-64 p-4 pr-12 border border-slate-300 rounded-lg focus:ring-2 focus:ring-academic-blue focus:border-academic-blue resize-none"
+            disabled={isSubmitted || isRecording}
+          />
+          <Button 
+            onClick={toggleRecording}
+            disabled={isSubmitted || isTranscribing}
+            className={`absolute top-2 right-2 ${isRecording ? 'bg-academic-red hover:bg-red-700' : 'bg-slate-500 hover:bg-slate-600'}`}
+            size="sm"
+          >
+            {isTranscribing ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : isRecording ? (
+              <Square className="w-4 h-4" />
+            ) : (
+              <Mic className="w-4 h-4" />
+            )}
+          </Button>
+        </div>
         
         <div className="flex justify-between items-center mt-4">
           <div className="text-sm text-slate-500">
             <span className={isOverLimit ? 'text-academic-red' : ''}>
               {wordCount}
             </span> / 250 words
+            {isRecording && <span className="ml-2 text-academic-red">• Recording...</span>}
+            {isTranscribing && <span className="ml-2 text-academic-blue">• Transcribing...</span>}
           </div>
           <Button
             onClick={handleSubmit}
-            disabled={isSubmitted}
+            disabled={isSubmitted || isRecording || isTranscribing}
             className="bg-academic-blue text-white hover:bg-blue-700"
           >
             {isSubmitted ? "Submitted" : "Submit Answer"}

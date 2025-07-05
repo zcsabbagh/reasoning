@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { Send, MessageCircle, Mic, Square, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
@@ -116,6 +116,14 @@ export default function ChatInterface({
       e.preventDefault();
       sendQuestion();
     }
+  };
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setInputValue(e.target.value);
+    // Auto-expand textarea
+    const textarea = e.target;
+    textarea.style.height = 'auto';
+    textarea.style.height = Math.min(textarea.scrollHeight, 120) + 'px';
   };
 
   const startRecording = async () => {
@@ -277,19 +285,20 @@ export default function ChatInterface({
       </ScrollArea>
       
       <div className="px-6 py-4 border-t border-slate-200">
-        <div className="flex space-x-2">
-          <Input
+        <div className="flex items-end space-x-2">
+          <Textarea
             value={inputValue}
-            onChange={(e) => setInputValue(e.target.value)}
-            onKeyPress={handleKeyPress}
+            onChange={handleInputChange}
+            onKeyDown={handleKeyPress}
             placeholder="Ask a clarifying question..."
             disabled={isLoading || questionsAsked >= 3 || isRecording}
-            className="flex-1"
+            className="flex-1 min-h-[40px] max-h-[120px] resize-none overflow-y-auto"
+            rows={1}
           />
           <Button 
             onClick={toggleRecording}
             disabled={questionsAsked >= 3 || isTranscribing}
-            className={`${isRecording ? 'bg-academic-red hover:bg-red-700' : 'bg-slate-500 hover:bg-slate-600'}`}
+            className={`${isRecording ? 'bg-academic-red hover:bg-red-700' : 'bg-slate-500 hover:bg-slate-600'} mb-0.5`}
             size="sm"
           >
             {isTranscribing ? (
@@ -303,7 +312,7 @@ export default function ChatInterface({
           <Button 
             onClick={sendQuestion}
             disabled={isLoading || questionsAsked >= 3 || !inputValue.trim() || isRecording}
-            className="bg-academic-blue hover:bg-blue-700"
+            className="bg-academic-blue hover:bg-blue-700 mb-0.5"
           >
             <Send className="w-4 h-4" />
           </Button>
