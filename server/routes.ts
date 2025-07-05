@@ -15,28 +15,14 @@ const upload = multer({ storage: multer.memoryStorage() });
 
 export async function registerRoutes(app: Express): Promise<Server> {
   
-  // Configure session middleware
-  const PgSession = connectPgSimple(session);
-  const sessionConfig = process.env.DATABASE_URL ? {
-    store: new PgSession({
-      conString: process.env.DATABASE_URL,
-      tableName: 'session',
-      createTableIfMissing: true
-    }),
+  // Configure session middleware with memory store for now
+  const sessionConfig = {
     secret: process.env.SESSION_SECRET || 'citium-session-secret-key',
     resave: false,
     saveUninitialized: false,
     cookie: { 
       secure: false, // Set to true in production with HTTPS
       maxAge: 24 * 60 * 60 * 1000 // 24 hours
-    }
-  } : {
-    secret: process.env.SESSION_SECRET || 'citium-session-secret-key',
-    resave: false,
-    saveUninitialized: false,
-    cookie: { 
-      secure: false,
-      maxAge: 24 * 60 * 60 * 1000
     }
   };
   
