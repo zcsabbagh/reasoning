@@ -2,7 +2,12 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { insertTestSessionSchema, insertChatMessageSchema } from "@shared/schema";
-import { getClarificationResponse } from "./services/openai";
+import { getClarificationResponse, generateFollowUpQuestions } from "./services/openai";
+import multer from "multer";
+import OpenAI from "openai";
+
+const upload = multer({ storage: multer.memoryStorage() });
+const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 export async function registerRoutes(app: Express): Promise<Server> {
   
@@ -116,6 +121,72 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching chat history:", error);
       res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Transcribe audio using OpenAI Whisper
+  app.post("/api/transcribe", upload.single('audio'), async (req, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ message: "No audio file provided" });
+      }
+
+      const audioBuffer = req.file.buffer;
+      const audioFile = new File([audioBuffer], 'recording.wav', { type: 'audio/wav' });
+      
+      const transcription = await openai.audio.transcriptions.create({
+        file: audioFile,
+        model: "whisper-1",
+        response_format: "text"
+      });
+
+      res.json({ text: transcription });
+    } catch (error) {
+      console.error("Error transcribing audio:", error);
+      res.status(500).json({ message: "Failed to transcribe audio" });
+    }
+  });
+
+  // Progress to next question
+  app.post("/api/test-sessions/:id/next-question", async (req, res) => {
+    try {
+      const sessionId = parseInt(req.params.id);
+      const session = await storage.getTestSession(sessionId);
+      
+      if (!session) {
+        return res.status(404).json({ message: "Test session not found" });
+      }
+
+      if (session.currentQuestionIndex >= 2) {
+        return res.status(400).json({ message: "No more questions available" });
+      }
+
+      let allQuestions = session.allQuestions;
+      
+      // If we only have the first question, generate follow-ups
+      if (allQuestions.length === 1 && session.currentQuestionIndex === 0) {
+        const followUpQuestions = await generateFollowUpQuestions(allQuestions[0]);
+        allQuestions = [...allQuestions, ...followUpQuestions];
+      }
+
+      const nextIndex = session.currentQuestionIndex + 1;
+      const nextQuestion = allQuestions[nextIndex];
+      
+      // Update session with next question
+      const updatedSession = await storage.updateTestSession(sessionId, {
+        currentQuestionIndex: nextIndex,
+        taskQuestion: nextQuestion,
+        allQuestions: allQuestions,
+        timeRemaining: 600, // 10 minutes for follow-up questions
+        questionsAsked: 0, // Reset questions asked for new question
+        questionPenalty: 0, // Reset penalty for new question
+        finalAnswer: null // Clear previous answer
+      });
+
+      res.json(updatedSession);
+    } catch (error) {
+      console.error("Error progressing to next question:", error);
+      res.status(500).json({ message: "Failed to progress to next question" });
     }
   });
 

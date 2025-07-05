@@ -80,6 +80,10 @@ This is a full-stack academic test platform application built with React and Exp
 
 ## Changelog
 - July 05, 2025. Initial setup
+- July 05, 2025. Added voice recording with OpenAI Whisper transcription
+- July 05, 2025. Implemented multi-question progression (30 min + 10 min + 10 min)
+- July 05, 2025. Enhanced chat interface with markdown formatting and immediate message display
+- July 05, 2025. Added AI-generated follow-up questions based on original question
 
 ## User Preferences
 

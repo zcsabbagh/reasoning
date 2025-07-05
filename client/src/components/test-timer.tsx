@@ -21,8 +21,9 @@ export default function TestTimer({ initialTime, onTimeUp, onTimeWarning }: Test
           return 0;
         }
         
-        // Show warning at 5 minutes (300 seconds)
-        if (prev === 300 && !hasWarned) {
+        // Show warning based on question duration
+        const warningTime = initialTime <= 600 ? 120 : 300; // 2 min for 10-min questions, 5 min for 30-min questions
+        if (prev === warningTime && !hasWarned) {
           setHasWarned(true);
           onTimeWarning();
         }
@@ -38,8 +39,13 @@ export default function TestTimer({ initialTime, onTimeUp, onTimeWarning }: Test
   const seconds = timeRemaining % 60;
 
   const getTimerColor = () => {
-    if (timeRemaining <= 300) return "bg-academic-red";
-    if (timeRemaining <= 600) return "bg-academic-amber";
+    // For 10-minute questions (600 seconds), warn at 2 minutes
+    // For 30-minute questions (1800 seconds), warn at 5 minutes
+    const warningThreshold = initialTime <= 600 ? 120 : 300;
+    const criticalThreshold = initialTime <= 600 ? 60 : 180;
+    
+    if (timeRemaining <= criticalThreshold) return "bg-academic-red";
+    if (timeRemaining <= warningThreshold) return "bg-academic-amber";
     return "bg-academic-blue";
   };
 

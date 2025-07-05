@@ -1,11 +1,12 @@
 import { useState, useEffect, useRef } from "react";
-import { Send, MessageCircle } from "lucide-react";
+import { Send, MessageCircle, Mic, MicOff, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import type { ChatMessage } from "@shared/schema";
+import ReactMarkdown from "react-markdown";
 
 interface ChatInterfaceProps {
   sessionId: number;
@@ -23,6 +24,10 @@ export default function ChatInterface({
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputValue, setInputValue] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [isRecording, setIsRecording] = useState(false);
+  const [isTranscribing, setIsTranscribing] = useState(false);
+  const [mediaRecorder, setMediaRecorder] = useState<MediaRecorder | null>(null);
+  const [audioChunks, setAudioChunks] = useState<Blob[]>([]);
   const { toast } = useToast();
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -62,6 +67,17 @@ export default function ChatInterface({
     const question = inputValue.trim();
     setInputValue("");
 
+    // Add user message immediately to UI
+    const tempUserMessage: ChatMessage = {
+      id: Date.now(), // temporary ID
+      sessionId,
+      content: question,
+      isUser: true,
+      timestamp: new Date()
+    };
+    
+    setMessages(prev => [...prev, tempUserMessage]);
+
     try {
       const response = await apiRequest("POST", `/api/chat/${sessionId}`, {
         question,
@@ -69,7 +85,12 @@ export default function ChatInterface({
       
       const { userMessage, aiMessage, session } = await response.json();
       
-      setMessages(prev => [...prev, userMessage, aiMessage]);
+      // Replace temp message with actual messages from server
+      setMessages(prev => {
+        const withoutTemp = prev.filter(msg => msg.id !== tempUserMessage.id);
+        return [...withoutTemp, userMessage, aiMessage];
+      });
+      
       onQuestionAsked();
       onSessionUpdate(session);
       
@@ -79,6 +100,8 @@ export default function ChatInterface({
       });
     } catch (error) {
       console.error("Failed to send question:", error);
+      // Remove temp message on error
+      setMessages(prev => prev.filter(msg => msg.id !== tempUserMessage.id));
       toast({
         title: "Error",
         description: "Failed to send question. Please try again.",
@@ -93,6 +116,84 @@ export default function ChatInterface({
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       sendQuestion();
+    }
+  };
+
+  const startRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const recorder = new MediaRecorder(stream);
+      
+      recorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          setAudioChunks(prev => [...prev, event.data]);
+        }
+      };
+      
+      recorder.onstop = async () => {
+        const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
+        await transcribeAudio(audioBlob);
+        setAudioChunks([]);
+        // Stop all tracks to release microphone
+        stream.getTracks().forEach(track => track.stop());
+      };
+      
+      setMediaRecorder(recorder);
+      setIsRecording(true);
+      recorder.start();
+      
+      toast({
+        title: "Recording Started",
+        description: "Speak your question now. Click the microphone again to stop.",
+      });
+    } catch (error) {
+      console.error("Error starting recording:", error);
+      toast({
+        title: "Microphone Access Denied",
+        description: "Please allow microphone access to use voice recording.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const stopRecording = () => {
+    if (mediaRecorder && mediaRecorder.state !== "inactive") {
+      mediaRecorder.stop();
+      setIsRecording(false);
+      setIsTranscribing(true);
+    }
+  };
+
+  const transcribeAudio = async (audioBlob: Blob) => {
+    try {
+      const formData = new FormData();
+      formData.append('audio', audioBlob, 'recording.wav');
+      
+      const response = await apiRequest("POST", `/api/transcribe`, formData);
+      const { text } = await response.json();
+      
+      setInputValue(text);
+      toast({
+        title: "Transcription Complete",
+        description: "Your voice has been converted to text.",
+      });
+    } catch (error) {
+      console.error("Error transcribing audio:", error);
+      toast({
+        title: "Transcription Failed",
+        description: "Failed to transcribe audio. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsTranscribing(false);
+    }
+  };
+
+  const toggleRecording = () => {
+    if (isRecording) {
+      stopRecording();
+    } else {
+      startRecording();
     }
   };
 
@@ -131,7 +232,25 @@ export default function ChatInterface({
                     ? 'bg-academic-blue text-white' 
                     : 'bg-slate-100 text-slate-800'
                 }`}>
-                  <p className="text-sm">{message.content}</p>
+                  <div className="text-sm">
+                    {message.isUser ? (
+                      <p>{message.content}</p>
+                    ) : (
+                      <ReactMarkdown 
+                        components={{
+                          p: ({ children }) => <p className="mb-2 last:mb-0 text-slate-800">{children}</p>,
+                          ul: ({ children }) => <ul className="list-disc pl-4 mb-2 text-slate-800">{children}</ul>,
+                          ol: ({ children }) => <ol className="list-decimal pl-4 mb-2 text-slate-800">{children}</ol>,
+                          li: ({ children }) => <li className="mb-1 text-slate-800">{children}</li>,
+                          strong: ({ children }) => <strong className="font-semibold text-slate-900">{children}</strong>,
+                          em: ({ children }) => <em className="italic text-slate-700">{children}</em>,
+                          code: ({ children }) => <code className="bg-slate-200 px-1 py-0.5 rounded text-xs text-slate-900">{children}</code>
+                        }}
+                      >
+                        {message.content}
+                      </ReactMarkdown>
+                    )}
+                  </div>
                   <div className={`text-xs mt-1 ${
                     message.isUser ? 'text-white/75' : 'text-slate-500'
                   }`}>
@@ -151,12 +270,26 @@ export default function ChatInterface({
             onChange={(e) => setInputValue(e.target.value)}
             onKeyPress={handleKeyPress}
             placeholder="Ask a clarifying question..."
-            disabled={isLoading || questionsAsked >= 3}
+            disabled={isLoading || questionsAsked >= 3 || isRecording}
             className="flex-1"
           />
           <Button 
+            onClick={toggleRecording}
+            disabled={questionsAsked >= 3 || isTranscribing}
+            className={`${isRecording ? 'bg-academic-red hover:bg-red-700' : 'bg-slate-500 hover:bg-slate-600'}`}
+            size="sm"
+          >
+            {isTranscribing ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : isRecording ? (
+              <MicOff className="w-4 h-4" />
+            ) : (
+              <Mic className="w-4 h-4" />
+            )}
+          </Button>
+          <Button 
             onClick={sendQuestion}
-            disabled={isLoading || questionsAsked >= 3 || !inputValue.trim()}
+            disabled={isLoading || questionsAsked >= 3 || !inputValue.trim() || isRecording}
             className="bg-academic-blue hover:bg-blue-700"
           >
             <Send className="w-4 h-4" />

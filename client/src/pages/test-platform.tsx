@@ -32,6 +32,9 @@ export default function TestPlatform() {
         baseScore: 25,
         questionPenalty: 0,
         infoGainBonus: 0,
+        currentQuestionIndex: 0,
+        allQuestions: ["Assume the printing press never spread beyond Mainz after 1450. Pick one European region and outline two major political or cultural consequences by 1700 (≤250 words)."],
+        allAnswers: ["", "", ""]
       });
       
       const newSession = await response.json();
@@ -66,16 +69,42 @@ export default function TestPlatform() {
 
   const handleSubmitAnswer = async (answer: string) => {
     if (!session) return;
+
+    // Update the current answer in the allAnswers array
+    const newAnswers = [...session.allAnswers];
+    newAnswers[session.currentQuestionIndex] = answer;
     
     await updateSession({ 
-      finalAnswer: answer, 
-      isSubmitted: true 
+      finalAnswer: answer,
+      allAnswers: newAnswers,
+      isSubmitted: session.currentQuestionIndex === 2 // Only mark as submitted on the last question
     });
     
-    toast({
-      title: "Answer Submitted",
-      description: "Your answer has been submitted successfully.",
-    });
+    // If this isn't the last question, progress to next question
+    if (session.currentQuestionIndex < 2) {
+      try {
+        const response = await apiRequest("POST", `/api/test-sessions/${session.id}/next-question`, {});
+        const updatedSession = await response.json();
+        setSession(updatedSession);
+        
+        toast({
+          title: "Answer Saved",
+          description: `Moving to question ${updatedSession.currentQuestionIndex + 1} of 3.`,
+        });
+      } catch (error) {
+        console.error("Failed to progress to next question:", error);
+        toast({
+          title: "Error",
+          description: "Failed to progress to next question.",
+          variant: "destructive",
+        });
+      }
+    } else {
+      toast({
+        title: "Test Complete",
+        description: "All questions have been answered successfully.",
+      });
+    }
   };
 
   const handleTimeUp = () => {
@@ -145,6 +174,7 @@ export default function TestPlatform() {
               </div>
               
               <TestTimer
+                key={session.currentQuestionIndex}
                 initialTime={session.timeRemaining}
                 onTimeUp={handleTimeUp}
                 onTimeWarning={handleTimeWarning}
@@ -173,7 +203,9 @@ export default function TestPlatform() {
               <div className="px-6 py-4 border-b border-slate-200">
                 <div className="flex items-center justify-between">
                   <h2 className="text-lg font-semibold text-slate-800">Current Task</h2>
-                  <span className="text-sm text-slate-500 bg-slate-100 px-2 py-1 rounded">Task 1 of 1</span>
+                  <span className="text-sm text-slate-500 bg-slate-100 px-2 py-1 rounded">
+                    Question {session.currentQuestionIndex + 1} of 3
+                  </span>
                 </div>
               </div>
               
