@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { ClipboardCheck, Info, AlertTriangle, Loader2 } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
@@ -18,6 +18,7 @@ export default function TestPlatform() {
   const [grades, setGrades] = useState<number[]>([]);
   const [showResults, setShowResults] = useState(false);
   const { toast } = useToast();
+  const debounceRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     initializeSession();
@@ -86,9 +87,22 @@ export default function TestPlatform() {
     }
   };
 
-  const handleAnswerChange = (answer: string) => {
-    updateSession({ finalAnswer: answer });
-  };
+  const handleAnswerChange = useCallback((answer: string) => {
+    if (!session) return;
+    
+    // Update local state immediately for smooth typing
+    setSession(prev => prev ? { ...prev, finalAnswer: answer } : null);
+    
+    // Clear previous timeout
+    if (debounceRef.current) {
+      clearTimeout(debounceRef.current);
+    }
+    
+    // Debounce the API call to reduce server requests
+    debounceRef.current = setTimeout(() => {
+      updateSession({ finalAnswer: answer });
+    }, 500);
+  }, [session?.id]);
 
   const handleSubmitAnswer = async (answer: string) => {
     if (!session) return;

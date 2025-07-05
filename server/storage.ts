@@ -6,6 +6,9 @@ import {
   type InsertTestSession, 
   type InsertChatMessage 
 } from "@shared/schema";
+import { drizzle } from "drizzle-orm/postgres-js";
+import postgres from "postgres";
+import { eq } from "drizzle-orm";
 
 export interface IStorage {
   // Test Sessions
@@ -83,4 +86,74 @@ export class MemStorage implements IStorage {
   }
 }
 
-export const storage = new MemStorage();
+// PostgreSQL Storage Implementation
+export class PostgresStorage implements IStorage {
+  private db: ReturnType<typeof drizzle>;
+
+  constructor() {
+    if (!process.env.DATABASE_URL) {
+      throw new Error("DATABASE_URL is required for PostgreSQL storage");
+    }
+    
+    // Handle URL encoding for special characters in password
+    let connectionString = process.env.DATABASE_URL;
+    
+    // Parse and reconstruct URL to handle special characters
+    const urlMatch = connectionString.match(/postgresql:\/\/([^:]+):([^@]+)@(.+)/);
+    if (urlMatch) {
+      const [, username, password, hostAndDb] = urlMatch;
+      connectionString = `postgresql://${username}:${encodeURIComponent(password)}@${hostAndDb}`;
+    }
+    
+    const queryClient = postgres(connectionString);
+    this.db = drizzle(queryClient);
+  }
+
+  async createTestSession(insertSession: InsertTestSession): Promise<TestSession> {
+    const [session] = await this.db
+      .insert(testSessions)
+      .values(insertSession)
+      .returning();
+    return session;
+  }
+
+  async getTestSession(id: number): Promise<TestSession | undefined> {
+    const [session] = await this.db
+      .select()
+      .from(testSessions)
+      .where(eq(testSessions.id, id))
+      .limit(1);
+    return session;
+  }
+
+  async updateTestSession(id: number, updates: Partial<TestSession>): Promise<TestSession | undefined> {
+    const [session] = await this.db
+      .update(testSessions)
+      .set(updates)
+      .where(eq(testSessions.id, id))
+      .returning();
+    return session;
+  }
+
+  async createChatMessage(insertMessage: InsertChatMessage): Promise<ChatMessage> {
+    const [message] = await this.db
+      .insert(chatMessages)
+      .values(insertMessage)
+      .returning();
+    return message;
+  }
+
+  async getChatMessagesBySession(sessionId: number): Promise<ChatMessage[]> {
+    const messages = await this.db
+      .select()
+      .from(chatMessages)
+      .where(eq(chatMessages.sessionId, sessionId))
+      .orderBy(chatMessages.timestamp);
+    return messages;
+  }
+}
+
+// Use PostgreSQL storage if DATABASE_URL is available, otherwise fallback to MemStorage
+export const storage = process.env.DATABASE_URL 
+  ? new PostgresStorage() 
+  : new MemStorage();

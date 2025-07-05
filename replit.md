@@ -18,9 +18,9 @@ This is a full-stack academic test platform application built with React and Exp
 - **Runtime**: Node.js with Express.js
 - **Language**: TypeScript with ES modules
 - **Database**: PostgreSQL with Drizzle ORM
-- **Database Provider**: Neon Database (serverless PostgreSQL)
-- **AI Integration**: OpenAI API for chat clarifications
-- **Session Management**: In-memory storage with fallback to database
+- **Database Provider**: Supabase (PostgreSQL)
+- **AI Integration**: OpenAI API for chat clarifications and grading
+- **Session Management**: PostgreSQL database with fallback to in-memory storage
 
 ## Key Components
 
@@ -92,6 +92,8 @@ This is a full-stack academic test platform application built with React and Exp
 - July 05, 2025. Adjusted layout: narrower answer section, wider chat interface
 - July 05, 2025. Added AI grading system with OpenAI API for 25-point scoring per question
 - July 05, 2025. Implemented test completion flow with automatic grading and results display
+- July 05, 2025. Fixed typing smoothness with debounced input handling
+- July 05, 2025. Integrated Supabase database for persistent storage of sessions and chat messages
 
 ## User Preferences
 
