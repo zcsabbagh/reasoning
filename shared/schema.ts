@@ -4,6 +4,7 @@ import { z } from "zod";
 
 export const testSessions = pgTable("test_sessions", {
   id: serial("id").primaryKey(),
+  userId: integer("user_id").references(() => users.id),
   taskQuestion: text("task_question").notNull(),
   finalAnswer: text("final_answer"),
   timeRemaining: integer("time_remaining").notNull().default(1800), // 30 minutes in seconds
@@ -15,6 +16,16 @@ export const testSessions = pgTable("test_sessions", {
   currentQuestionIndex: integer("current_question_index").notNull().default(0),
   allQuestions: text("all_questions").array().notNull(),
   allAnswers: text("all_answers").array().notNull().default(["", "", ""]),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const users = pgTable("users", {
+  id: serial("id").primaryKey(),
+  linkedinId: text("linkedin_id").unique().notNull(),
+  email: text("email").notNull(),
+  firstName: text("first_name").notNull(),
+  lastName: text("last_name").notNull(),
+  profilePictureUrl: text("profile_picture_url"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -36,7 +47,14 @@ export const insertChatMessageSchema = createInsertSchema(chatMessages).omit({
   timestamp: true,
 });
 
+export const insertUserSchema = createInsertSchema(users).omit({
+  id: true,
+  createdAt: true,
+});
+
 export type InsertTestSession = z.infer<typeof insertTestSessionSchema>;
 export type TestSession = typeof testSessions.$inferSelect;
 export type InsertChatMessage = z.infer<typeof insertChatMessageSchema>;
 export type ChatMessage = typeof chatMessages.$inferSelect;
+export type InsertUser = z.infer<typeof insertUserSchema>;
+export type User = typeof users.$inferSelect;

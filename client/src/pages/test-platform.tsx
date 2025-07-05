@@ -1,10 +1,12 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { ClipboardCheck, Info, AlertTriangle, Loader2 } from "lucide-react";
+import { ClipboardCheck, Info, AlertTriangle, Loader2, LogOut, User } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
+import { useQuery } from "@tanstack/react-query";
+import { useLocation } from "wouter";
 import TestTimer from "@/components/test-timer";
 import ChatInterface from "@/components/chat-interface";
 import AnswerSection from "@/components/answer-section";
@@ -13,11 +15,33 @@ import type { TestSession } from "@shared/schema";
 export default function TestPlatform() {
   const [session, setSession] = useState<TestSession | null>(null);
   const [showTimeWarning, setShowTimeWarning] = useState(false);
+  const [, setLocation] = useLocation();
+  const { toast } = useToast();
+
+  // Check authentication
+  const { data: user, isLoading: userLoading, error: userError } = useQuery<{
+    id: number;
+    firstName: string;
+    lastName: string;
+    email: string;
+    linkedinId: string;
+    profilePictureUrl?: string;
+  }>({
+    queryKey: ["/auth/user"],
+    retry: false
+  });
+
+  // Redirect to login if not authenticated
+  useEffect(() => {
+    if (!userLoading && (userError || !user)) {
+      setLocation("/login");
+    }
+  }, [user, userLoading, userError, setLocation]);
+  
   const [isLoading, setIsLoading] = useState(true);
   const [isGrading, setIsGrading] = useState(false);
   const [grades, setGrades] = useState<number[]>([]);
   const [showResults, setShowResults] = useState(false);
-  const { toast } = useToast();
   const debounceRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
@@ -219,6 +243,27 @@ export default function TestPlatform() {
                 onTimeUp={handleTimeUp}
                 onTimeWarning={handleTimeWarning}
               />
+              
+              {/* User Info and Logout */}
+              {user && (
+                <div className="flex items-center space-x-3">
+                  <div className="flex items-center space-x-2">
+                    <User className="w-4 h-4 text-slate-500" />
+                    <span className="text-sm text-slate-700">
+                      {user.firstName} {user.lastName}
+                    </span>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => window.location.href = '/auth/logout'}
+                    className="text-slate-600 hover:text-slate-800"
+                  >
+                    <LogOut className="w-4 h-4 mr-1" />
+                    Logout
+                  </Button>
+                </div>
+              )}
             </div>
           </div>
         </div>

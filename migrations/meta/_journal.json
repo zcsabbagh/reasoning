@@ -8,6 +8,13 @@
       "when": 1751756159921,
       "tag": "0000_pale_molly_hayes",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1751756727458,
+      "tag": "0001_redundant_blizzard",
+      "breakpoints": true
     }
   ]
 }

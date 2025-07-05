@@ -1,14 +1,17 @@
 import { 
   testSessions, 
   chatMessages, 
+  users,
   type TestSession, 
   type ChatMessage, 
   type InsertTestSession, 
-  type InsertChatMessage 
+  type InsertChatMessage,
+  type User,
+  type InsertUser
 } from "@shared/schema";
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 
 export interface IStorage {
   // Test Sessions
@@ -19,28 +22,38 @@ export interface IStorage {
   // Chat Messages
   createChatMessage(message: InsertChatMessage): Promise<ChatMessage>;
   getChatMessagesBySession(sessionId: number): Promise<ChatMessage[]>;
+  
+  // Users
+  createUser(user: InsertUser): Promise<User>;
+  getUserByLinkedInId(linkedinId: string): Promise<User | undefined>;
+  getUserById(id: number): Promise<User | undefined>;
 }
 
 export class MemStorage implements IStorage {
   private testSessions: Map<number, TestSession>;
   private chatMessages: Map<number, ChatMessage>;
+  private users: Map<number, User>;
   private currentSessionId: number;
   private currentMessageId: number;
+  private currentUserId: number;
 
   constructor() {
     this.testSessions = new Map();
     this.chatMessages = new Map();
+    this.users = new Map();
     this.currentSessionId = 1;
     this.currentMessageId = 1;
+    this.currentUserId = 1;
   }
 
   async createTestSession(insertSession: InsertTestSession): Promise<TestSession> {
     const id = this.currentSessionId++;
     const session: TestSession = { 
       id,
+      userId: insertSession.userId || null,
       taskQuestion: insertSession.taskQuestion,
       finalAnswer: insertSession.finalAnswer || null,
-      timeRemaining: insertSession.timeRemaining || 1800,
+      timeRemaining: insertSession.timeRemaining || 600,
       questionsAsked: insertSession.questionsAsked || 0,
       isSubmitted: insertSession.isSubmitted || false,
       baseScore: insertSession.baseScore || 25,
@@ -84,6 +97,29 @@ export class MemStorage implements IStorage {
       .filter(message => message.sessionId === sessionId)
       .sort((a, b) => a.timestamp!.getTime() - b.timestamp!.getTime());
   }
+
+  async createUser(insertUser: InsertUser): Promise<User> {
+    const id = this.currentUserId++;
+    const user: User = {
+      id,
+      linkedinId: insertUser.linkedinId,
+      email: insertUser.email,
+      firstName: insertUser.firstName,
+      lastName: insertUser.lastName,
+      profilePictureUrl: insertUser.profilePictureUrl || null,
+      createdAt: new Date()
+    };
+    this.users.set(id, user);
+    return user;
+  }
+
+  async getUserByLinkedInId(linkedinId: string): Promise<User | undefined> {
+    return Array.from(this.users.values()).find(user => user.linkedinId === linkedinId);
+  }
+
+  async getUserById(id: number): Promise<User | undefined> {
+    return this.users.get(id);
+  }
 }
 
 // PostgreSQL Storage Implementation
@@ -107,6 +143,34 @@ export class PostgresStorage implements IStorage {
     
     const queryClient = postgres(connectionString);
     this.db = drizzle(queryClient);
+    this.initializeSchema();
+  }
+
+  private async initializeSchema() {
+    try {
+      // Create users table if it doesn't exist
+      await this.db.execute(sql`
+        CREATE TABLE IF NOT EXISTS "users" (
+          "id" serial PRIMARY KEY NOT NULL,
+          "linkedin_id" text NOT NULL,
+          "email" text NOT NULL,
+          "first_name" text NOT NULL,
+          "last_name" text NOT NULL,
+          "profile_picture_url" text,
+          "created_at" timestamp DEFAULT now(),
+          CONSTRAINT "users_linkedin_id_unique" UNIQUE("linkedin_id")
+        )
+      `);
+      
+      // Add user_id column to test_sessions table if it doesn't exist
+      await this.db.execute(sql`
+        ALTER TABLE "test_sessions" ADD COLUMN IF NOT EXISTS "user_id" integer
+      `);
+      
+      console.log("Database schema initialized successfully");
+    } catch (error) {
+      console.error("Error initializing database schema:", error);
+    }
   }
 
   async createTestSession(insertSession: InsertTestSession): Promise<TestSession> {
@@ -150,6 +214,32 @@ export class PostgresStorage implements IStorage {
       .where(eq(chatMessages.sessionId, sessionId))
       .orderBy(chatMessages.timestamp);
     return messages;
+  }
+
+  async createUser(insertUser: InsertUser): Promise<User> {
+    const [user] = await this.db
+      .insert(users)
+      .values(insertUser)
+      .returning();
+    return user;
+  }
+
+  async getUserByLinkedInId(linkedinId: string): Promise<User | undefined> {
+    const [user] = await this.db
+      .select()
+      .from(users)
+      .where(eq(users.linkedinId, linkedinId))
+      .limit(1);
+    return user;
+  }
+
+  async getUserById(id: number): Promise<User | undefined> {
+    const [user] = await this.db
+      .select()
+      .from(users)
+      .where(eq(users.id, id))
+      .limit(1);
+    return user;
   }
 }
 

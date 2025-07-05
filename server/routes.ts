@@ -1,20 +1,111 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertTestSessionSchema, insertChatMessageSchema } from "@shared/schema";
+import { insertTestSessionSchema, insertChatMessageSchema, insertUserSchema } from "@shared/schema";
 import { getClarificationResponse, generateFollowUpQuestions } from "./services/openai";
 import { transcribeAudio } from "./services/transcription";
 import { gradeAllAnswers } from "./services/grading";
 import multer from "multer";
+import session from "express-session";
+import passport from "passport";
+import { Strategy as LinkedInStrategy } from "passport-linkedin-oauth2";
 
 const upload = multer({ storage: multer.memoryStorage() });
 
 export async function registerRoutes(app: Express): Promise<Server> {
   
+  // Configure session middleware
+  app.use(session({
+    secret: process.env.SESSION_SECRET || 'fallback-secret-key',
+    resave: false,
+    saveUninitialized: false,
+    cookie: { secure: false } // Set to true in production with HTTPS
+  }));
+
+  // Initialize passport
+  app.use(passport.initialize());
+  app.use(passport.session());
+
+  // Configure LinkedIn OAuth strategy
+  passport.use(new LinkedInStrategy({
+    clientID: process.env.LINKEDIN_CLIENT_ID!,
+    clientSecret: process.env.LINKEDIN_CLIENT_SECRET!,
+    callbackURL: "/auth/linkedin/callback",
+    scope: ['r_emailaddress', 'r_liteprofile']
+  }, async (accessToken, refreshToken, profile, done) => {
+    try {
+      // Check if user exists
+      let user = await storage.getUserByLinkedInId(profile.id);
+      
+      if (!user) {
+        // Create new user
+        const newUser = await storage.createUser({
+          linkedinId: profile.id,
+          email: profile.emails?.[0]?.value || '',
+          firstName: profile.name?.givenName || '',
+          lastName: profile.name?.familyName || '',
+          profilePictureUrl: profile.photos?.[0]?.value || null
+        });
+        user = newUser;
+      }
+      
+      return done(null, user);
+    } catch (error) {
+      return done(error, null);
+    }
+  }));
+
+  // Serialize user for session
+  passport.serializeUser((user: any, done) => {
+    done(null, user.id);
+  });
+
+  // Deserialize user from session
+  passport.deserializeUser(async (id: number, done) => {
+    try {
+      const user = await storage.getUserById(id);
+      done(null, user);
+    } catch (error) {
+      done(error, null);
+    }
+  });
+
+  // Authentication routes
+  app.get('/auth/linkedin', passport.authenticate('linkedin'));
+  
+  app.get('/auth/linkedin/callback', 
+    passport.authenticate('linkedin', { failureRedirect: '/login' }),
+    (req, res) => {
+      // Successful authentication, redirect to test platform
+      res.redirect('/test-platform');
+    }
+  );
+
+  app.get('/auth/logout', (req, res, next) => {
+    req.logout((err) => {
+      if (err) { return next(err); }
+      res.redirect('/');
+    });
+  });
+
+  app.get('/auth/user', (req, res) => {
+    if (req.isAuthenticated()) {
+      res.json(req.user);
+    } else {
+      res.status(401).json({ error: 'Not authenticated' });
+    }
+  });
+  
   // Create a new test session
   app.post("/api/test-sessions", async (req, res) => {
     try {
       const sessionData = insertTestSessionSchema.parse(req.body);
+      
+      // Associate with current user if authenticated
+      if (req.isAuthenticated() && req.user) {
+        sessionData.userId = (req.user as any).id;
+      }
+      
       const session = await storage.createTestSession(sessionData);
       res.json(session);
     } catch (error) {
