@@ -1,0 +1,121 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: hsl(0, 0%, 100%);
+  --foreground: hsl(20, 14.3%, 4.1%);
+  --muted: hsl(60, 4.8%, 95.9%);
+  --muted-foreground: hsl(25, 5.3%, 44.7%);
+  --popover: hsl(0, 0%, 100%);
+  --popover-foreground: hsl(20, 14.3%, 4.1%);
+  --card: hsl(0, 0%, 100%);
+  --card-foreground: hsl(20, 14.3%, 4.1%);
+  --border: hsl(20, 5.9%, 90%);
+  --input: hsl(20, 5.9%, 90%);
+  --primary: hsl(207, 90%, 54%);
+  --primary-foreground: hsl(211, 100%, 99%);
+  --secondary: hsl(60, 4.8%, 95.9%);
+  --secondary-foreground: hsl(24, 9.8%, 10%);
+  --accent: hsl(60, 4.8%, 95.9%);
+  --accent-foreground: hsl(24, 9.8%, 10%);
+  --destructive: hsl(0, 84.2%, 60.2%);
+  --destructive-foreground: hsl(60, 9.1%, 97.8%);
+  --ring: hsl(20, 14.3%, 4.1%);
+  --radius: 0.5rem;
+  
+  /* Academic colors */
+  --academic-blue: hsl(217, 91%, 60%);
+  --academic-slate: hsl(215, 20%, 65%);
+  --academic-emerald: hsl(160, 84%, 39%);
+  --academic-amber: hsl(43, 96%, 56%);
+  --academic-red: hsl(0, 84%, 60%);
+}
+
+.dark {
+  --background: hsl(240, 10%, 3.9%);
+  --foreground: hsl(0, 0%, 98%);
+  --muted: hsl(240, 3.7%, 15.9%);
+  --muted-foreground: hsl(240, 5%, 64.9%);
+  --popover: hsl(240, 10%, 3.9%);
+  --popover-foreground: hsl(0, 0%, 98%);
+  --card: hsl(240, 10%, 3.9%);
+  --card-foreground: hsl(0, 0%, 98%);
+  --border: hsl(240, 3.7%, 15.9%);
+  --input: hsl(240, 3.7%, 15.9%);
+  --primary: hsl(207, 90%, 54%);
+  --primary-foreground: hsl(211, 100%, 99%);
+  --secondary: hsl(240, 3.7%, 15.9%);
+  --secondary-foreground: hsl(0, 0%, 98%);
+  --accent: hsl(240, 3.7%, 15.9%);
+  --accent-foreground: hsl(0, 0%, 98%);
+  --destructive: hsl(0, 62.8%, 30.6%);
+  --destructive-foreground: hsl(0, 0%, 98%);
+  --ring: hsl(240, 4.9%, 83.9%);
+  --radius: 0.5rem;
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply font-sans antialiased bg-background text-foreground;
+    font-family: 'Inter', system-ui, sans-serif;
+  }
+}
+
+@layer utilities {
+  .text-academic-blue {
+    color: var(--academic-blue);
+  }
+  
+  .text-academic-slate {
+    color: var(--academic-slate);
+  }
+  
+  .text-academic-emerald {
+    color: var(--academic-emerald);
+  }
+  
+  .text-academic-amber {
+    color: var(--academic-amber);
+  }
+  
+  .text-academic-red {
+    color: var(--academic-red);
+  }
+  
+  .bg-academic-blue {
+    background-color: var(--academic-blue);
+  }
+  
+  .bg-academic-slate {
+    background-color: var(--academic-slate);
+  }
+  
+  .bg-academic-emerald {
+    background-color: var(--academic-emerald);
+  }
+  
+  .bg-academic-amber {
+    background-color: var(--academic-amber);
+  }
+  
+  .bg-academic-red {
+    background-color: var(--academic-red);
+  }
+  
+  .border-academic-blue {
+    border-color: var(--academic-blue);
+  }
+  
+  .hover\:bg-academic-blue:hover {
+    background-color: var(--academic-blue);
+  }
+  
+  .hover\:bg-blue-700:hover {
+    background-color: hsl(217, 91%, 45%);
+  }
+}
