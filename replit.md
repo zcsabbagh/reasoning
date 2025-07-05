@@ -87,6 +87,11 @@ This is a full-stack academic test platform application built with React and Exp
 - July 05, 2025. Integrated Groq transcription as primary service with OpenAI fallback
 - July 05, 2025. Added voice recording to final answer text box
 - July 05, 2025. Made chat input expandable for longer clarifying questions
+- July 05, 2025. Renamed platform to "Citium" and removed scoring components
+- July 05, 2025. Changed all questions to 10-minute time limits
+- July 05, 2025. Adjusted layout: narrower answer section, wider chat interface
+- July 05, 2025. Added AI grading system with OpenAI API for 25-point scoring per question
+- July 05, 2025. Implemented test completion flow with automatic grading and results display
 
 ## User Preferences
 

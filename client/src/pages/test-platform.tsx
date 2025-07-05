@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { ClipboardCheck, Info, AlertTriangle } from "lucide-react";
+import { ClipboardCheck, Info, AlertTriangle, Loader2 } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -8,13 +8,15 @@ import { apiRequest } from "@/lib/queryClient";
 import TestTimer from "@/components/test-timer";
 import ChatInterface from "@/components/chat-interface";
 import AnswerSection from "@/components/answer-section";
-import ScoringPanel from "@/components/scoring-panel";
 import type { TestSession } from "@shared/schema";
 
 export default function TestPlatform() {
   const [session, setSession] = useState<TestSession | null>(null);
   const [showTimeWarning, setShowTimeWarning] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [isGrading, setIsGrading] = useState(false);
+  const [grades, setGrades] = useState<number[]>([]);
+  const [showResults, setShowResults] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -26,7 +28,7 @@ export default function TestPlatform() {
       const response = await apiRequest("POST", "/api/test-sessions", {
         taskQuestion: "Assume the printing press never spread beyond Mainz after 1450. Pick one European region and outline two major political or cultural consequences by 1700 (≤250 words).",
         finalAnswer: "",
-        timeRemaining: 1800,
+        timeRemaining: 600,
         questionsAsked: 0,
         isSubmitted: false,
         baseScore: 25,
@@ -60,6 +62,27 @@ export default function TestPlatform() {
       setSession(updatedSession);
     } catch (error) {
       console.error("Failed to update session:", error);
+    }
+  };
+
+  const gradeTest = async (sessionId: number) => {
+    try {
+      setIsGrading(true);
+      setShowResults(true);
+      
+      const response = await apiRequest("POST", `/api/test-sessions/${sessionId}/grade`, {});
+      const result = await response.json();
+      
+      setGrades(result.grades);
+      setIsGrading(false);
+    } catch (error) {
+      console.error("Error grading test:", error);
+      setIsGrading(false);
+      toast({
+        title: "Grading Error",
+        description: "Failed to grade your test. Please try again.",
+        variant: "destructive",
+      });
     }
   };
 
@@ -100,9 +123,11 @@ export default function TestPlatform() {
         });
       }
     } else {
+      // Test completed - start grading
+      gradeTest(session.id);
       toast({
         title: "Test Complete",
-        description: "All questions have been answered successfully.",
+        description: "All questions have been answered. Grading your responses...",
       });
     }
   };
@@ -129,6 +154,7 @@ export default function TestPlatform() {
   const handleSessionUpdate = (updatedSession: TestSession) => {
     setSession(updatedSession);
   };
+
 
   if (isLoading) {
     return (
@@ -161,7 +187,7 @@ export default function TestPlatform() {
             <div className="flex items-center space-x-4">
               <div className="flex items-center space-x-2">
                 <ClipboardCheck className="w-5 h-5 text-academic-blue" />
-                <h1 className="text-xl font-semibold text-slate-800">Academic Test Platform</h1>
+                <h1 className="text-xl font-semibold text-slate-800">Citium</h1>
               </div>
             </div>
             
@@ -185,7 +211,7 @@ export default function TestPlatform() {
       </header>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 lg:grid-cols-5 gap-8">
           
           {/* Test Question and Answer */}
           <div className="lg:col-span-2 space-y-6">
@@ -193,8 +219,7 @@ export default function TestPlatform() {
             <Alert className="bg-blue-50 border-blue-200">
               <Info className="w-4 h-4 text-academic-blue" />
               <AlertDescription className="text-blue-800">
-                <strong>Test Instructions:</strong> You have 30 minutes per task and may ask up to 3 clarifying questions to the AI. 
-                Each question reduces your score by 1 point, but good questions that improve your answer quality can earn bonus points.
+                <strong>Test Instructions:</strong> You have 10 minutes per question and may ask up to 3 clarifying questions to the AI assistant for each question.
               </AlertDescription>
             </Alert>
 
@@ -202,7 +227,6 @@ export default function TestPlatform() {
             <div className="bg-white rounded-lg shadow-sm border border-slate-200">
               <div className="px-6 py-4 border-b border-slate-200">
                 <div className="flex items-center justify-between">
-                  <h2 className="text-lg font-semibold text-slate-800">Current Task</h2>
                   <span className="text-sm text-slate-500 bg-slate-100 px-2 py-1 rounded">
                     Question {session.currentQuestionIndex + 1} of 3
                   </span>
@@ -227,19 +251,13 @@ export default function TestPlatform() {
             />
           </div>
 
-          {/* Chat Interface and Scoring */}
-          <div className="lg:col-span-1">
+          {/* Chat Interface */}
+          <div className="lg:col-span-3">
             <ChatInterface
               sessionId={session.id}
               questionsAsked={session.questionsAsked}
               onQuestionAsked={handleQuestionAsked}
               onSessionUpdate={handleSessionUpdate}
-            />
-            
-            <ScoringPanel
-              baseScore={session.baseScore}
-              questionPenalty={session.questionPenalty}
-              infoGainBonus={session.infoGainBonus}
             />
           </div>
         </div>
@@ -279,6 +297,60 @@ export default function TestPlatform() {
               Review Answer
             </Button>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Results Modal */}
+      <Dialog open={showResults} onOpenChange={setShowResults}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center space-x-3">
+              <div className="w-12 h-12 bg-academic-blue rounded-full flex items-center justify-center">
+                <ClipboardCheck className="w-6 h-6 text-white" />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-slate-800">Test Results</h3>
+                <p className="text-sm text-slate-600">Your performance on all questions</p>
+              </div>
+            </DialogTitle>
+          </DialogHeader>
+          
+          {isGrading ? (
+            <div className="flex flex-col items-center justify-center py-8">
+              <Loader2 className="w-8 h-8 animate-spin text-academic-blue mb-4" />
+              <p className="text-slate-600">Grading your answers...</p>
+              <p className="text-sm text-slate-500">This may take a few moments</p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {grades.map((grade, index) => (
+                <div key={index} className="flex items-center justify-between p-4 bg-slate-50 rounded-lg">
+                  <div>
+                    <h4 className="font-semibold text-slate-800">Question {index + 1}</h4>
+                    <p className="text-sm text-slate-600 truncate max-w-md">
+                      {session?.allQuestions[index]}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-2xl font-bold text-academic-blue">{grade}</div>
+                    <div className="text-sm text-slate-500">out of 25</div>
+                  </div>
+                </div>
+              ))}
+              
+              <div className="border-t pt-4">
+                <div className="flex items-center justify-between">
+                  <span className="text-lg font-semibold text-slate-800">Total Score</span>
+                  <div className="text-right">
+                    <div className="text-3xl font-bold text-academic-blue">
+                      {grades.reduce((sum, grade) => sum + grade, 0)}
+                    </div>
+                    <div className="text-sm text-slate-500">out of {grades.length * 25}</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>

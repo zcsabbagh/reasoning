@@ -4,6 +4,7 @@ import { storage } from "./storage";
 import { insertTestSessionSchema, insertChatMessageSchema } from "@shared/schema";
 import { getClarificationResponse, generateFollowUpQuestions } from "./services/openai";
 import { transcribeAudio } from "./services/transcription";
+import { gradeAllAnswers } from "./services/grading";
 import multer from "multer";
 
 const upload = multer({ storage: multer.memoryStorage() });
@@ -193,6 +194,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error progressing to next question:", error);
       res.status(500).json({ message: "Failed to progress to next question" });
+    }
+  });
+
+  // Grade test session
+  app.post("/api/test-sessions/:id/grade", async (req, res) => {
+    try {
+      const sessionId = parseInt(req.params.id);
+      const session = await storage.getTestSession(sessionId);
+      
+      if (!session) {
+        return res.status(404).json({ error: "Session not found" });
+      }
+
+      const grades = await gradeAllAnswers(session.allQuestions, session.allAnswers);
+      
+      res.json({ grades });
+    } catch (error) {
+      console.error("Error grading session:", error);
+      res.status(500).json({ error: "Failed to grade session" });
     }
   });
 
