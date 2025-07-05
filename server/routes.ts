@@ -46,17 +46,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.use(passport.initialize());
   app.use(passport.session());
 
-  // Configure LinkedIn OAuth strategy - detect environment automatically
+  // Configure LinkedIn OAuth strategy - use production URL
   const getBaseURL = () => {
-    // Check for deployment domain first
-    if (process.env.REPL_SLUG && process.env.REPL_OWNER) {
-      return `https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co`;
-    }
-    // Then check for development domain
+    // Use development domain for testing
     if (process.env.REPLIT_DEV_DOMAIN) {
       return `https://${process.env.REPLIT_DEV_DOMAIN}`;
     }
-    // Fallback to configured domain
+    // Use production domain for deployment
     return "https://test-interaction-site-zcsabbagh.replit.app";
   };
   
