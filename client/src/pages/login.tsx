@@ -1,8 +1,10 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { useEffect } from "react";
+import { AlertTriangle } from "lucide-react";
 
 export default function Login() {
   const [, setLocation] = useLocation();
@@ -13,6 +15,10 @@ export default function Login() {
     retry: false
   });
 
+  // Check for error in URL params
+  const urlParams = new URLSearchParams(window.location.search);
+  const error = urlParams.get('error');
+
   useEffect(() => {
     if (user) {
       setLocation("/test-platform");
@@ -21,6 +27,19 @@ export default function Login() {
 
   const handleLinkedInLogin = () => {
     window.location.href = "/auth/linkedin";
+  };
+
+  const getErrorMessage = (error: string | null) => {
+    switch (error) {
+      case 'oauth_failed':
+        return 'LinkedIn authentication failed. Please try again.';
+      case 'no_user':
+        return 'Could not retrieve user information from LinkedIn.';
+      case 'login_failed':
+        return 'Login process failed. Please try again.';
+      default:
+        return null;
+    }
   };
 
   return (
@@ -35,6 +54,15 @@ export default function Login() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
+          {error && (
+            <Alert variant="destructive">
+              <AlertTriangle className="h-4 w-4" />
+              <AlertDescription>
+                {getErrorMessage(error)}
+              </AlertDescription>
+            </Alert>
+          )}
+          
           <div className="text-center space-y-4">
             <div className="text-sm text-slate-600">
               <p>• Take up to 3 test questions</p>

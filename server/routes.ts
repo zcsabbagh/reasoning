@@ -9,18 +9,38 @@ import multer from "multer";
 import session from "express-session";
 import passport from "passport";
 import { Strategy as LinkedInStrategy } from "passport-linkedin-oauth2";
+import connectPgSimple from "connect-pg-simple";
 
 const upload = multer({ storage: multer.memoryStorage() });
 
 export async function registerRoutes(app: Express): Promise<Server> {
   
   // Configure session middleware
-  app.use(session({
-    secret: process.env.SESSION_SECRET || 'fallback-secret-key',
+  const PgSession = connectPgSimple(session);
+  const sessionConfig = process.env.DATABASE_URL ? {
+    store: new PgSession({
+      conString: process.env.DATABASE_URL,
+      tableName: 'session',
+      createTableIfMissing: true
+    }),
+    secret: process.env.SESSION_SECRET || 'citium-session-secret-key',
     resave: false,
     saveUninitialized: false,
-    cookie: { secure: false } // Set to true in production with HTTPS
-  }));
+    cookie: { 
+      secure: false, // Set to true in production with HTTPS
+      maxAge: 24 * 60 * 60 * 1000 // 24 hours
+    }
+  } : {
+    secret: process.env.SESSION_SECRET || 'citium-session-secret-key',
+    resave: false,
+    saveUninitialized: false,
+    cookie: { 
+      secure: false,
+      maxAge: 24 * 60 * 60 * 1000
+    }
+  };
+  
+  app.use(session(sessionConfig));
 
   // Initialize passport
   app.use(passport.initialize());
@@ -44,23 +64,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
     scope: ['r_emailaddress', 'r_liteprofile']
   }, async (accessToken: any, refreshToken: any, profile: any, done: any) => {
     try {
+      console.log('LinkedIn OAuth profile received:', JSON.stringify(profile, null, 2));
+      
       // Check if user exists
       let user = await storage.getUserByLinkedInId(profile.id);
       
       if (!user) {
         // Create new user
+        console.log('Creating new user for LinkedIn ID:', profile.id);
         const newUser = await storage.createUser({
           linkedinId: profile.id,
-          email: profile.emails?.[0]?.value || '',
-          firstName: profile.name?.givenName || '',
-          lastName: profile.name?.familyName || '',
+          email: profile.emails?.[0]?.value || `user-${profile.id}@linkedin.com`,
+          firstName: profile.name?.givenName || profile.displayName || 'LinkedIn',
+          lastName: profile.name?.familyName || 'User',
           profilePictureUrl: profile.photos?.[0]?.value || null
         });
         user = newUser;
+        console.log('User created successfully:', user.email);
+      } else {
+        console.log('Existing user found:', user.email);
       }
       
       return done(null, user);
     } catch (error) {
+      console.error('LinkedIn OAuth strategy error:', error);
       return done(error, null);
     }
   }));
@@ -84,10 +111,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/auth/linkedin', passport.authenticate('linkedin'));
   
   app.get('/auth/linkedin/callback', 
-    passport.authenticate('linkedin', { failureRedirect: '/login' }),
-    (req, res) => {
-      // Successful authentication, redirect to test platform
-      res.redirect('/test-platform');
+    (req, res, next) => {
+      passport.authenticate('linkedin', (err, user, info) => {
+        if (err) {
+          console.error('LinkedIn OAuth error:', err);
+          return res.redirect('/login?error=oauth_failed');
+        }
+        if (!user) {
+          console.error('LinkedIn OAuth: No user returned', info);
+          return res.redirect('/login?error=no_user');
+        }
+        req.logIn(user, (err) => {
+          if (err) {
+            console.error('Login error:', err);
+            return res.redirect('/login?error=login_failed');
+          }
+          console.log('User successfully authenticated:', user.email);
+          return res.redirect('/test-platform');
+        });
+      })(req, res, next);
     }
   );
 
