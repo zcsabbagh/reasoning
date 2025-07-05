@@ -27,12 +27,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.use(passport.session());
 
   // Configure LinkedIn OAuth strategy
+  const baseURL = process.env.REPLIT_DEV_DOMAIN 
+    ? `https://${process.env.REPLIT_DEV_DOMAIN}`
+    : "https://test-interaction-site-zcsabbagh.replit.app";
+  const callbackURL = `${baseURL}/auth/linkedin/callback`;
+  
+  console.log('LinkedIn OAuth Configuration:');
+  console.log('Base URL:', baseURL);
+  console.log('Callback URL:', callbackURL);
+  console.log('Client ID:', process.env.LINKEDIN_CLIENT_ID);
+    
   passport.use(new LinkedInStrategy({
     clientID: process.env.LINKEDIN_CLIENT_ID!,
     clientSecret: process.env.LINKEDIN_CLIENT_SECRET!,
-    callbackURL: "/auth/linkedin/callback",
+    callbackURL: callbackURL,
     scope: ['r_emailaddress', 'r_liteprofile']
-  }, async (accessToken, refreshToken, profile, done) => {
+  }, async (accessToken: any, refreshToken: any, profile: any, done: any) => {
     try {
       // Check if user exists
       let user = await storage.getUserByLinkedInId(profile.id);
@@ -94,6 +104,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } else {
       res.status(401).json({ error: 'Not authenticated' });
     }
+  });
+
+  // Configuration endpoint for debugging
+  app.get('/auth/config', (req, res) => {
+    res.json({
+      baseURL,
+      callbackURL,
+      clientId: process.env.LINKEDIN_CLIENT_ID,
+      isConfigured: !!(process.env.LINKEDIN_CLIENT_ID && process.env.LINKEDIN_CLIENT_SECRET)
+    });
   });
   
   // Create a new test session
