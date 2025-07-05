@@ -73,18 +73,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       console.log('LinkedIn OAuth profile received:', JSON.stringify(profile, null, 2));
       
-      // Check if user exists
-      let user = await storage.getUserByLinkedInId(profile.id);
+      // Use LinkedIn's new userinfo endpoint (OpenID Connect)
+      const userInfoResponse = await fetch('https://api.linkedin.com/v2/userinfo', {
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (!userInfoResponse.ok) {
+        throw new Error(`LinkedIn userinfo API error: ${userInfoResponse.status} ${userInfoResponse.statusText}`);
+      }
+      
+      const userInfo = await userInfoResponse.json();
+      console.log('LinkedIn userinfo response:', JSON.stringify(userInfo, null, 2));
+      
+      // Check if user exists using the 'sub' field (OpenID Connect standard)
+      let user = await storage.getUserByLinkedInId(userInfo.sub);
       
       if (!user) {
-        // Create new user
-        console.log('Creating new user for LinkedIn ID:', profile.id);
+        // Create new user with OpenID Connect data
+        console.log('Creating new user for LinkedIn ID:', userInfo.sub);
         const newUser = await storage.createUser({
-          linkedinId: profile.id,
-          email: profile.emails?.[0]?.value || `user-${profile.id}@linkedin.com`,
-          firstName: profile.name?.givenName || profile.displayName || 'LinkedIn',
-          lastName: profile.name?.familyName || 'User',
-          profilePictureUrl: profile.photos?.[0]?.value || null
+          linkedinId: userInfo.sub,
+          email: userInfo.email || `user-${userInfo.sub}@linkedin.com`,
+          firstName: userInfo.given_name || 'LinkedIn',
+          lastName: userInfo.family_name || 'User',
+          profilePictureUrl: userInfo.picture || null
         });
         user = newUser;
         console.log('User created successfully:', user.email);
