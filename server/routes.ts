@@ -68,7 +68,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     clientID: process.env.LINKEDIN_CLIENT_ID!,
     clientSecret: process.env.LINKEDIN_CLIENT_SECRET!,
     callbackURL: callbackURL,
-    scope: ['r_liteprofile']
+    scope: ['openid', 'profile', 'email']
   }, async (accessToken: any, refreshToken: any, profile: any, done: any) => {
     try {
       console.log('LinkedIn OAuth profile received:', JSON.stringify(profile, null, 2));
