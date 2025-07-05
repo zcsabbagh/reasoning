@@ -3,11 +3,10 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { insertTestSessionSchema, insertChatMessageSchema } from "@shared/schema";
 import { getClarificationResponse, generateFollowUpQuestions } from "./services/openai";
+import { transcribeAudio } from "./services/transcription";
 import multer from "multer";
-import OpenAI from "openai";
 
 const upload = multer({ storage: multer.memoryStorage() });
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 export async function registerRoutes(app: Express): Promise<Server> {
   
@@ -124,7 +123,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Transcribe audio using OpenAI Whisper
+  // Transcribe audio using Groq (with OpenAI fallback)
   app.post("/api/transcribe", upload.single('audio'), async (req, res) => {
     try {
       if (!req.file) {
@@ -143,17 +142,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const audioFile = new File([audioBuffer], filename, { type: mimeType });
       
-      const transcription = await openai.audio.transcriptions.create({
-        file: audioFile,
-        model: "whisper-1",
-        response_format: "text"
-      });
+      const transcriptionText = await transcribeAudio(audioFile);
 
-      console.log("Transcription result:", transcription);
-      res.json({ text: transcription });
+      console.log("Transcription result:", transcriptionText);
+      res.json({ text: transcriptionText });
     } catch (error) {
       console.error("Error transcribing audio:", error);
-      res.status(500).json({ message: "Failed to transcribe audio", error: error.message });
+      const errorMessage = error instanceof Error ? error.message : "Unknown error";
+      res.status(500).json({ message: "Failed to transcribe audio", error: errorMessage });
     }
   });
 
