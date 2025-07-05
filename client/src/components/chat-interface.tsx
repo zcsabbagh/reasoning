@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Send, MessageCircle, Mic, MicOff, Loader2 } from "lucide-react";
+import { Send, MessageCircle, Mic, Square, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -27,7 +27,6 @@ export default function ChatInterface({
   const [isRecording, setIsRecording] = useState(false);
   const [isTranscribing, setIsTranscribing] = useState(false);
   const [mediaRecorder, setMediaRecorder] = useState<MediaRecorder | null>(null);
-  const [audioChunks, setAudioChunks] = useState<Blob[]>([]);
   const { toast } = useToast();
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -122,18 +121,22 @@ export default function ChatInterface({
   const startRecording = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const recorder = new MediaRecorder(stream);
+      const recorder = new MediaRecorder(stream, {
+        mimeType: MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : 'audio/mp4'
+      });
+      
+      const chunks: Blob[] = [];
       
       recorder.ondataavailable = (event) => {
         if (event.data.size > 0) {
-          setAudioChunks(prev => [...prev, event.data]);
+          chunks.push(event.data);
         }
       };
       
       recorder.onstop = async () => {
-        const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
+        const mimeType = recorder.mimeType || 'audio/webm';
+        const audioBlob = new Blob(chunks, { type: mimeType });
         await transcribeAudio(audioBlob);
-        setAudioChunks([]);
         // Stop all tracks to release microphone
         stream.getTracks().forEach(track => track.stop());
       };
@@ -144,7 +147,7 @@ export default function ChatInterface({
       
       toast({
         title: "Recording Started",
-        description: "Speak your question now. Click the microphone again to stop.",
+        description: "Speak your question now. Click the stop button to finish.",
       });
     } catch (error) {
       console.error("Error starting recording:", error);
@@ -167,9 +170,19 @@ export default function ChatInterface({
   const transcribeAudio = async (audioBlob: Blob) => {
     try {
       const formData = new FormData();
-      formData.append('audio', audioBlob, 'recording.wav');
+      const filename = audioBlob.type.includes('webm') ? 'recording.webm' : 'recording.mp4';
+      formData.append('audio', audioBlob, filename);
       
-      const response = await apiRequest("POST", `/api/transcribe`, formData);
+      // Use fetch directly for file upload instead of apiRequest
+      const response = await fetch('/api/transcribe', {
+        method: 'POST',
+        body: formData
+      });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
       const { text } = await response.json();
       
       setInputValue(text);
@@ -282,7 +295,7 @@ export default function ChatInterface({
             {isTranscribing ? (
               <Loader2 className="w-4 h-4 animate-spin" />
             ) : isRecording ? (
-              <MicOff className="w-4 h-4" />
+              <Square className="w-4 h-4" />
             ) : (
               <Mic className="w-4 h-4" />
             )}

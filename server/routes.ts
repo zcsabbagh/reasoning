@@ -131,8 +131,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "No audio file provided" });
       }
 
+      console.log("Received audio file:", {
+        originalname: req.file.originalname,
+        mimetype: req.file.mimetype,
+        size: req.file.size
+      });
+
       const audioBuffer = req.file.buffer;
-      const audioFile = new File([audioBuffer], 'recording.wav', { type: 'audio/wav' });
+      const filename = req.file.originalname || 'recording.webm';
+      const mimeType = req.file.mimetype || 'audio/webm';
+      
+      const audioFile = new File([audioBuffer], filename, { type: mimeType });
       
       const transcription = await openai.audio.transcriptions.create({
         file: audioFile,
@@ -140,10 +149,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         response_format: "text"
       });
 
+      console.log("Transcription result:", transcription);
       res.json({ text: transcription });
     } catch (error) {
       console.error("Error transcribing audio:", error);
-      res.status(500).json({ message: "Failed to transcribe audio" });
+      res.status(500).json({ message: "Failed to transcribe audio", error: error.message });
     }
   });
 
