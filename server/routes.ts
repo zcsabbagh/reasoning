@@ -8,7 +8,7 @@ import { gradeAllAnswers } from "./services/grading";
 import multer from "multer";
 import session from "express-session";
 import passport from "passport";
-import { Strategy as LinkedInStrategy } from "passport-linkedin-oauth2";
+import { Strategy as OAuth2Strategy } from "passport-oauth2";
 import connectPgSimple from "connect-pg-simple";
 
 const upload = multer({ storage: multer.memoryStorage() });
@@ -64,16 +64,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
   console.log('Callback URL:', callbackURL);
   console.log('Client ID:', process.env.LINKEDIN_CLIENT_ID);
     
-  passport.use(new LinkedInStrategy({
+  // LinkedIn OpenID Connect Strategy using modern API
+  passport.use('linkedin', new OAuth2Strategy({
+    authorizationURL: 'https://www.linkedin.com/oauth/v2/authorization',
+    tokenURL: 'https://www.linkedin.com/oauth/v2/accessToken',
     clientID: process.env.LINKEDIN_CLIENT_ID!,
     clientSecret: process.env.LINKEDIN_CLIENT_SECRET!,
     callbackURL: callbackURL,
     scope: ['openid', 'profile', 'email']
   }, async (accessToken: any, refreshToken: any, profile: any, done: any) => {
     try {
-      console.log('LinkedIn OAuth profile received:', JSON.stringify(profile, null, 2));
+      console.log('LinkedIn OAuth access token received');
       
-      // Use LinkedIn's new userinfo endpoint (OpenID Connect)
+      // Use LinkedIn's OpenID Connect userinfo endpoint
       const userInfoResponse = await fetch('https://api.linkedin.com/v2/userinfo', {
         headers: {
           'Authorization': `Bearer ${accessToken}`,
@@ -82,6 +85,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
       
       if (!userInfoResponse.ok) {
+        const errorText = await userInfoResponse.text();
+        console.error('LinkedIn userinfo API error:', userInfoResponse.status, errorText);
         throw new Error(`LinkedIn userinfo API error: ${userInfoResponse.status} ${userInfoResponse.statusText}`);
       }
       
@@ -130,7 +135,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Authentication routes
-  app.get('/auth/linkedin', passport.authenticate('linkedin'));
+  app.get('/auth/linkedin', passport.authenticate('linkedin', { 
+    scope: ['openid', 'profile', 'email'] 
+  }));
   
   app.get('/auth/linkedin/callback', 
     (req, res, next) => {
