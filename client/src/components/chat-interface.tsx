@@ -266,24 +266,24 @@ export default function ChatInterface({
           ) : (
             messages.map((message) => (
               <div key={message.id} className={`flex ${message.isUser ? 'justify-end' : 'justify-start'}`}>
-                <div className={`max-w-xs px-4 py-2 rounded-lg ${
+                <div className={`${message.isUser ? 'max-w-xs' : 'w-full'} px-4 py-3 rounded-lg ${
                   message.isUser 
                     ? 'bg-academic-blue text-white' 
                     : 'bg-slate-100 text-slate-800'
                 }`}>
-                  <div className="text-sm">
+                  <div className={message.isUser ? "text-sm" : "text-sm leading-relaxed"}>
                     {message.isUser ? (
                       <p>{message.content}</p>
                     ) : (
                       <ReactMarkdown 
                         components={{
-                          p: ({ children }) => <p className="mb-2 last:mb-0 text-slate-800">{children}</p>,
-                          ul: ({ children }) => <ul className="list-disc pl-4 mb-2 text-slate-800">{children}</ul>,
-                          ol: ({ children }) => <ol className="list-decimal pl-4 mb-2 text-slate-800">{children}</ol>,
-                          li: ({ children }) => <li className="mb-1 text-slate-800">{children}</li>,
+                          p: ({ children }) => <p className="mb-3 last:mb-0 text-slate-800 leading-relaxed">{children}</p>,
+                          ul: ({ children }) => <ul className="list-disc pl-5 mb-3 text-slate-800 space-y-1">{children}</ul>,
+                          ol: ({ children }) => <ol className="list-decimal pl-5 mb-3 text-slate-800 space-y-1">{children}</ol>,
+                          li: ({ children }) => <li className="text-slate-800 leading-relaxed">{children}</li>,
                           strong: ({ children }) => <strong className="font-semibold text-slate-900">{children}</strong>,
                           em: ({ children }) => <em className="italic text-slate-700">{children}</em>,
-                          code: ({ children }) => <code className="bg-slate-200 px-1 py-0.5 rounded text-xs text-slate-900">{children}</code>
+                          code: ({ children }) => <code className="bg-slate-200 px-2 py-1 rounded text-xs text-slate-900">{children}</code>
                         }}
                       >
                         {message.content}
