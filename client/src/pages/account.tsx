@@ -48,10 +48,11 @@ export default function Account() {
   });
 
   // Redirect to login if not authenticated
-  if (!userLoading && (userError || !user)) {
-    setLocation("/login");
-    return null;
-  }
+  useEffect(() => {
+    if (!userLoading && (userError || !user)) {
+      setLocation("/login");
+    }
+  }, [userLoading, userError, user, setLocation]);
 
   // Get user's test sessions/exam history
   const { data: sessions = [], isLoading: sessionsLoading } = useQuery<TestSession[]>({

@@ -80,7 +80,11 @@ export default function ExamPrep() {
     if (stream) {
       stream.getTracks().forEach(track => track.stop());
     }
-    setLocation(`/test/${sessionId}`);
+    // Store session ID in localStorage for the test page
+    if (sessionId) {
+      localStorage.setItem('currentExamSessionId', sessionId);
+    }
+    setLocation(`/test`);
   };
 
   const goBack = () => {

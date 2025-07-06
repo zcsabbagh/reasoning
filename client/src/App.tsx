@@ -17,7 +17,7 @@ function Router() {
       <Route path="/login" component={Login} />
       <Route path="/account" component={Account} />
       <Route path="/exam-prep/:sessionId" component={ExamPrep} />
-      <Route path="/test/:sessionId" component={TestPlatform} />
+      <Route path="/test" component={TestPlatform} />
       <Route path="/rankings" component={Rankings} />
       <Route component={NotFound} />
     </Switch>
