@@ -69,7 +69,7 @@ export default function Account() {
         
         // Create new session
         console.log('Creating test session...');
-        const response = await apiRequest("POST", "/api/test-sessions", {
+        const sessionData = {
           taskQuestion: randomQuestion.questionText,
           finalAnswer: "",
           timeRemaining: 600,
@@ -81,10 +81,15 @@ export default function Account() {
           currentQuestionIndex: 0,
           allQuestions: [randomQuestion.questionText],
           allAnswers: ["", "", ""]
-        });
+        };
+        console.log('Session data to send:', sessionData);
+        
+        const response = await apiRequest("POST", "/api/test-sessions", sessionData);
         
         if (!response.ok) {
-          throw new Error(`Failed to create session: ${response.status}`);
+          const errorText = await response.text();
+          console.error('Session creation failed:', response.status, errorText);
+          throw new Error(`Failed to create session: ${response.status} - ${errorText}`);
         }
         
         const session = await response.json();
@@ -92,6 +97,12 @@ export default function Account() {
         return session;
       } catch (error) {
         console.error('Error creating exam session:', error);
+        console.error('Error details:', {
+          message: error instanceof Error ? error.message : 'Unknown error',
+          stack: error instanceof Error ? error.stack : 'No stack trace',
+          type: typeof error,
+          error: error
+        });
         throw error;
       }
     },
