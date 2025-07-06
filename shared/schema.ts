@@ -13,6 +13,7 @@ export const testSessions = pgTable("test_sessions", {
   baseScore: integer("base_score").notNull().default(25),
   questionPenalty: integer("question_penalty").notNull().default(0),
   infoGainBonus: integer("info_gain_bonus").notNull().default(0),
+  finalScore: integer("final_score"), // Actual score from AI grading
   currentQuestionIndex: integer("current_question_index").notNull().default(0),
   allQuestions: text("all_questions").array().notNull(),
   allAnswers: text("all_answers").array().notNull().default(["", "", ""]),

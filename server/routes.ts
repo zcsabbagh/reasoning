@@ -690,6 +690,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const grades = detailedGrades.map(dg => dg.score);
       const totalScore = grades.reduce((sum, grade) => sum + grade, 0);
       
+      // Update the session with the final score
+      await storage.updateTestSession(sessionId, { finalScore: totalScore });
+      
       // Update user's total score if they're authenticated
       if (session.userId) {
         await storage.updateUserScore(session.userId, totalScore);

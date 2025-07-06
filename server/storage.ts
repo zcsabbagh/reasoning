@@ -74,6 +74,7 @@ export class MemStorage implements IStorage {
       baseScore: insertSession.baseScore || 25,
       questionPenalty: insertSession.questionPenalty || 0,
       infoGainBonus: insertSession.infoGainBonus || 0,
+      finalScore: null, // Will be set after grading
       currentQuestionIndex: insertSession.currentQuestionIndex || 0,
       allQuestions: insertSession.allQuestions || [insertSession.taskQuestion],
       allAnswers: insertSession.allAnswers || ["", "", ""],
@@ -242,6 +243,11 @@ export class PostgresStorage implements IStorage {
       // Add user_id column to test_sessions table if it doesn't exist
       await this.db.execute(sql`
         ALTER TABLE "test_sessions" ADD COLUMN IF NOT EXISTS "user_id" integer
+      `);
+      
+      // Add final_score column to test_sessions table if it doesn't exist
+      await this.db.execute(sql`
+        ALTER TABLE "test_sessions" ADD COLUMN IF NOT EXISTS "final_score" integer
       `);
 
       // Create questions table if it doesn't exist

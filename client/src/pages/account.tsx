@@ -30,6 +30,7 @@ interface TestSession {
   baseScore: number;
   questionPenalty: number;
   infoGainBonus: number;
+  finalScore: number | null; // Actual score from AI grading
   currentQuestionIndex: number;
   allQuestions: string[];
   allAnswers: string[];
@@ -174,7 +175,8 @@ export default function Account() {
 
   const getSessionStatus = (session: TestSession) => {
     if (session.isSubmitted) {
-      const totalScore = session.baseScore - session.questionPenalty + session.infoGainBonus;
+      // Use the actual final score from grading if available, otherwise fall back to calculated score
+      const totalScore = session.finalScore || (session.baseScore - session.questionPenalty + session.infoGainBonus);
       return { status: "completed", score: totalScore };
     }
     return { status: "incomplete", score: null };
