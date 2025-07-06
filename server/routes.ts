@@ -18,15 +18,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // Configure persistent session store with Supabase
   const PgSession = connectPgSimple(session);
-  const sessionConfig: any = {
-    store: new PgSession({
+  
+  let sessionStore;
+  try {
+    sessionStore = new PgSession({
       pool: pool,
       tableName: 'session', // Will be created automatically
       createTableIfMissing: true
-    }),
-    secret: process.env.SESSION_SECRET || 'citium-session-secret-key',
-    resave: false,
-    saveUninitialized: false,
+    });
+    console.log('Session store initialized successfully');
+  } catch (error) {
+    console.error('Session store initialization error:', error);
+    // Fallback to memory store if database fails
+    console.log('Falling back to memory store for sessions');
+    sessionStore = undefined; // This will use default memory store
+  }
+  
+  const sessionConfig: any = {
+    store: sessionStore,
+    secret: process.env.SESSION_SECRET || 'citium-session-secret-key-fixed-for-production',
+    resave: true, // Force session save even if unmodified
+    saveUninitialized: true, // Save new sessions even if empty
+    rolling: true, // Reset the cookie MaxAge on every response
     cookie: { 
       secure: process.env.NODE_ENV === 'production', // Enable secure cookies in production
       maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days for persistent login
@@ -137,10 +150,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Deserialize user from session
   passport.deserializeUser(async (id: number, done) => {
     try {
-      console.log('Deserializing user with ID:', id);
+      console.log('Deserializing user with ID:', id, 'type:', typeof id);
       const user = await storage.getUserById(id);
-      console.log('Deserialized user:', user ? user.email : 'not found');
-      done(null, user);
+      console.log('Deserialized user:', user ? { id: user.id, email: user.email } : 'not found');
+      if (user) {
+        console.log('User found successfully, returning to passport');
+        done(null, user);
+      } else {
+        console.log('User not found in database');
+        done(null, false);
+      }
     } catch (error) {
       console.error('Error deserializing user:', error);
       done(error, null);
@@ -154,7 +173,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   app.get('/auth/linkedin/callback', 
     (req, res, next) => {
+      console.log('LinkedIn callback initiated');
       passport.authenticate('linkedin', (err, user, info) => {
+        console.log('LinkedIn callback - err:', err, 'user:', user ? user.email : 'none', 'info:', info);
+        
         if (err) {
           console.error('LinkedIn OAuth error:', err);
           return res.redirect('/login?error=oauth_failed');
@@ -163,13 +185,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
           console.error('LinkedIn OAuth: No user returned', info);
           return res.redirect('/login?error=no_user');
         }
+        
+        console.log('About to login user:', user.email, 'user ID:', user.id);
         req.logIn(user, (err) => {
           if (err) {
             console.error('Login error:', err);
             return res.redirect('/login?error=login_failed');
           }
           console.log('User successfully authenticated:', user.email);
-          return res.redirect('/account');
+          console.log('Session after login:', req.session);
+          console.log('User in session:', req.user);
+          console.log('Session ID:', req.sessionID);
+          
+          // Force save the session to ensure it persists
+          req.session.save((err) => {
+            if (err) {
+              console.error('Session save error:', err);
+            } else {
+              console.log('Session saved successfully');
+            }
+            return res.redirect('/account');
+          });
         });
       })(req, res, next);
     }
@@ -191,6 +227,55 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(req.user);
     } else {
       res.status(401).json({ error: 'Not authenticated' });
+    }
+  });
+
+  app.get('/auth/test-manual-login', async (req, res) => {
+    try {
+      console.log('Manual test login initiated');
+      
+      // Try to find or create a test user
+      let testUser = await storage.getUserByLinkedInId('test-linkedin-id');
+      if (!testUser) {
+        console.log('Creating test user');
+        testUser = await storage.createUser({
+          firstName: 'Test',
+          lastName: 'User',
+          email: 'test@hinton.world',
+          linkedinId: 'test-linkedin-id',
+          profilePictureUrl: null,
+          totalScore: 100
+        });
+      }
+      
+      console.log('Test user found/created:', testUser.email);
+      
+      // Manually log in the user
+      req.logIn(testUser, (err) => {
+        if (err) {
+          console.error('Manual login error:', err);
+          res.json({ error: 'Login failed', details: err.message });
+        } else {
+          console.log('Manual login successful, saving session');
+          req.session.save((err) => {
+            if (err) {
+              console.error('Session save error:', err);
+              res.json({ error: 'Session save failed', details: err.message });
+            } else {
+              console.log('Session saved successfully');
+              res.json({ 
+                success: true, 
+                user: { id: testUser.id, email: testUser.email, firstName: testUser.firstName },
+                sessionID: req.sessionID,
+                isAuthenticated: req.isAuthenticated()
+              });
+            }
+          });
+        }
+      });
+    } catch (error) {
+      console.error('Error in manual login test:', error);
+      res.json({ error: 'Test failed', details: error instanceof Error ? error.message : 'Unknown error' });
     }
   });
 
@@ -312,6 +397,65 @@ export async function registerRoutes(app: Express): Promise<Server> {
       session: req.session,
       cookies: req.headers.cookie || null
     });
+  });
+
+  app.get('/debug/set-test-session', (req, res) => {
+    req.session.test = 'test-value';
+    req.session.save((err) => {
+      if (err) {
+        console.error('Test session save error:', err);
+        res.json({ error: 'Session save failed', details: err });
+      } else {
+        console.log('Test session saved successfully');
+        res.json({ success: true, sessionID: req.sessionID });
+      }
+    });
+  });
+
+  app.get('/debug/get-test-session', (req, res) => {
+    res.json({
+      test: req.session.test,
+      sessionID: req.sessionID,
+      allSession: req.session
+    });
+  });
+
+  app.get('/debug/login-test-user', async (req, res) => {
+    try {
+      // Create a test user for debugging
+      const testUser = await storage.createUser({
+        firstName: 'Test',
+        lastName: 'User',
+        email: 'test@example.com',
+        linkedinId: 'test-linkedin-id',
+        profilePictureUrl: null,
+        totalScore: 100
+      });
+      
+      console.log('Test user created:', testUser);
+      
+      // Log the user in manually
+      req.logIn(testUser, (err) => {
+        if (err) {
+          console.error('Manual login error:', err);
+          res.json({ error: 'Login failed', details: err });
+        } else {
+          console.log('Manual login successful');
+          req.session.save((err) => {
+            if (err) {
+              console.error('Session save error:', err);
+              res.json({ error: 'Session save failed', details: err });
+            } else {
+              console.log('Session saved after manual login');
+              res.json({ success: true, user: testUser, sessionID: req.sessionID });
+            }
+          });
+        }
+      });
+    } catch (error) {
+      console.error('Error in login test:', error);
+      res.json({ error: 'Test failed', details: error });
+    }
   });
   
   // Create a new test session
