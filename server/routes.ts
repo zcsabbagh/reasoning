@@ -16,14 +16,15 @@ const upload = multer({ storage: multer.memoryStorage() });
 export async function registerRoutes(app: Express): Promise<Server> {
   
   // Configure session middleware with memory store for now
-  const sessionConfig = {
+  const sessionConfig: any = {
     secret: process.env.SESSION_SECRET || 'citium-session-secret-key',
     resave: false,
     saveUninitialized: false,
     cookie: { 
       secure: process.env.NODE_ENV === 'production', // Enable secure cookies in production
       maxAge: 24 * 60 * 60 * 1000, // 24 hours
-      sameSite: 'lax' // Allow cross-site cookies for OAuth
+      sameSite: 'lax', // Allow cross-site cookies for OAuth
+      httpOnly: true // Security: prevent XSS attacks
     }
   };
   
@@ -171,6 +172,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.get('/auth/user', (req, res) => {
+    console.log('Auth user check - isAuthenticated:', req.isAuthenticated());
+    console.log('Auth user check - session:', req.session);
+    console.log('Auth user check - user:', req.user);
+    
     if (req.isAuthenticated()) {
       res.json(req.user);
     } else {
@@ -268,6 +273,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       prodDomains: process.env.REPLIT_DOMAINS,
       userAgent: req.get('user-agent'),
       headers: req.headers
+    });
+  });
+
+  // Debug endpoint to check authentication status
+  app.get("/debug/auth-status", (req, res) => {
+    res.json({
+      isAuthenticated: req.isAuthenticated(),
+      user: req.user || null,
+      sessionID: req.sessionID,
+      session: req.session,
+      cookies: req.headers.cookie || null
     });
   });
   
