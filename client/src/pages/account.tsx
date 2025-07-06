@@ -67,7 +67,10 @@ export default function Account() {
       try {
         // Get a random question first
         console.log('Step 1: Fetching random question...');
-        const questionResponse = await apiRequest("GET", "/api/questions/random", {});
+        console.log('About to make API request to /api/questions/random');
+        console.log('Current location:', window.location.href);
+        const questionResponse = await apiRequest("GET", "/api/questions/random");
+        console.log('Step 1 Response received:', questionResponse);
         console.log('Step 1 Response status:', questionResponse.status, questionResponse.ok);
         if (!questionResponse.ok) {
           const errorText = await questionResponse.text();
@@ -152,10 +155,21 @@ export default function Account() {
   };
 
   const handleStartExam = () => {
-    console.log('Start New Exam button clicked');
+    console.log('=== START EXAM BUTTON CLICKED ===');
     console.log('User:', user);
-    console.log('Mutation pending:', createExamMutation.isPending);
-    createExamMutation.mutate();
+    console.log('Mutation state:', {
+      isPending: createExamMutation.isPending,
+      isError: createExamMutation.isError,
+      isSuccess: createExamMutation.isSuccess,
+      error: createExamMutation.error
+    });
+    console.log('About to call mutate...');
+    try {
+      createExamMutation.mutate();
+      console.log('Mutate called successfully');
+    } catch (error) {
+      console.error('Error calling mutate:', error);
+    }
   };
 
   const getSessionStatus = (session: TestSession) => {
