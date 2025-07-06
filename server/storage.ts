@@ -27,6 +27,8 @@ export interface IStorage {
   createUser(user: InsertUser): Promise<User>;
   getUserByLinkedInId(linkedinId: string): Promise<User | undefined>;
   getUserById(id: number): Promise<User | undefined>;
+  updateUserScore(userId: number, totalScore: number): Promise<User | undefined>;
+  getLeaderboard(limit?: number): Promise<User[]>;
 }
 
 export class MemStorage implements IStorage {
@@ -107,6 +109,7 @@ export class MemStorage implements IStorage {
       firstName: insertUser.firstName,
       lastName: insertUser.lastName,
       profilePictureUrl: insertUser.profilePictureUrl || null,
+      totalScore: insertUser.totalScore || 20,
       createdAt: new Date()
     };
     this.users.set(id, user);
@@ -119,6 +122,22 @@ export class MemStorage implements IStorage {
 
   async getUserById(id: number): Promise<User | undefined> {
     return this.users.get(id);
+  }
+
+  async updateUserScore(userId: number, totalScore: number): Promise<User | undefined> {
+    const user = this.users.get(userId);
+    if (user) {
+      user.totalScore = totalScore;
+      this.users.set(userId, user);
+    }
+    return user;
+  }
+
+  async getLeaderboard(limit: number = 10): Promise<User[]> {
+    const allUsers = Array.from(this.users.values());
+    return allUsers
+      .sort((a, b) => (b.totalScore || 20) - (a.totalScore || 20))
+      .slice(0, limit);
   }
 }
 
@@ -240,6 +259,24 @@ export class PostgresStorage implements IStorage {
       .where(eq(users.id, id))
       .limit(1);
     return user;
+  }
+
+  async updateUserScore(userId: number, totalScore: number): Promise<User | undefined> {
+    const [user] = await this.db
+      .update(users)
+      .set({ totalScore })
+      .where(eq(users.id, userId))
+      .returning();
+    return user;
+  }
+
+  async getLeaderboard(limit: number = 10): Promise<User[]> {
+    const leaderboard = await this.db
+      .select()
+      .from(users)
+      .orderBy(sql`${users.totalScore} DESC`)
+      .limit(limit);
+    return leaderboard;
   }
 }
 

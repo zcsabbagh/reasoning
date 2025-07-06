@@ -163,6 +163,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get leaderboard
+  app.get("/api/leaderboard", async (req, res) => {
+    try {
+      const limit = parseInt(req.query.limit as string) || 10;
+      const leaderboard = await storage.getLeaderboard(limit);
+      res.json(leaderboard);
+    } catch (error) {
+      console.error("Error fetching leaderboard:", error);
+      res.status(500).json({ error: "Failed to fetch leaderboard" });
+    }
+  });
+
   // Configuration endpoint for debugging
   app.get('/auth/config', (req, res) => {
     res.json({
@@ -376,8 +388,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const grades = await gradeAllAnswers(session.allQuestions, session.allAnswers);
+      const totalScore = grades.reduce((sum, grade) => sum + grade, 0);
       
-      res.json({ grades });
+      // Update user's total score if they're authenticated
+      if (session.userId) {
+        await storage.updateUserScore(session.userId, totalScore);
+      }
+      
+      res.json({ grades, totalScore });
     } catch (error) {
       console.error("Error grading session:", error);
       res.status(500).json({ error: "Failed to grade session" });

@@ -26,6 +26,7 @@ export const users = pgTable("users", {
   firstName: text("first_name").notNull(),
   lastName: text("last_name").notNull(),
   profilePictureUrl: text("profile_picture_url"),
+  totalScore: integer("total_score").notNull().default(20), // Default score for users who signed in but haven't completed exam
   createdAt: timestamp("created_at").defaultNow(),
 });
 

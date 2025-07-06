@@ -97,6 +97,10 @@ This is a full-stack academic test platform application built with React and Exp
 - July 05, 2025. Implemented LinkedIn Sign-In authentication with user management and session association
 - July 05, 2025. Added user database schema with automatic migration and foreign key relationships
 - July 05, 2025. Created login page with LinkedIn OAuth integration and user profile display in header
+- July 06, 2025. Migrated to LinkedIn's modern OpenID Connect API with proper userinfo endpoint
+- July 06, 2025. Created RankLift leaderboard page showing top users with profile photos, names, and exam scores
+- July 06, 2025. Added totalScore field to users table with default value of 20 for new users
+- July 06, 2025. Implemented automatic score updating when users complete exams
 
 ## User Preferences
 
