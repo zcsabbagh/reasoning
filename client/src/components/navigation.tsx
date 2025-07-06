@@ -17,17 +17,7 @@ export default function Navigation() {
             Citium
           </h1>
           
-          <div className="flex space-x-4">
-            <Link href="/test-platform">
-              <Button 
-                variant={location === "/test-platform" ? "default" : "ghost"}
-                className="flex items-center space-x-2"
-              >
-                <TestTube className="h-4 w-4" />
-                <span>Test Platform</span>
-              </Button>
-            </Link>
-            
+          <div className="flex space-x-4">            
             <Link href="/rankings">
               <Button 
                 variant={location === "/rankings" ? "default" : "ghost"}

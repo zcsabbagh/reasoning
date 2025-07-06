@@ -65,7 +65,6 @@ export default function Login() {
           
           <div className="text-center space-y-4">
             <div className="text-sm text-slate-600">
-              <p>s</p>
              
             </div>
             
