@@ -18,6 +18,7 @@ function Router() {
       <Route path="/account" component={Account} />
       <Route path="/exam-prep/:sessionId" component={ExamPrep} />
       <Route path="/test" component={TestPlatform} />
+      <Route path="/test-platform" component={() => { window.location.href = '/test'; return null; }} />
       <Route path="/rankings" component={Rankings} />
       <Route component={NotFound} />
     </Switch>

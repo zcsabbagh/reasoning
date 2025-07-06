@@ -16,7 +16,6 @@ export default function TestPlatform() {
   const [session, setSession] = useState<TestSession | null>(null);
   const [showTimeWarning, setShowTimeWarning] = useState(false);
   const [, setLocation] = useLocation();
-  const [match, params] = useRoute('/test/:sessionId');
   const { toast } = useToast();
 
   // Check authentication
@@ -101,8 +100,8 @@ export default function TestPlatform() {
   };
 
   useEffect(() => {
-    // Check if there's a session ID in the URL params
-    const sessionId = params?.sessionId;
+    // Check if there's a session ID in localStorage
+    const sessionId = localStorage.getItem('currentExamSessionId');
     
     if (sessionId) {
       loadExistingSession(parseInt(sessionId));
@@ -110,7 +109,7 @@ export default function TestPlatform() {
       // Redirect to account if no session ID
       setLocation('/account');
     }
-  }, [params?.sessionId, setLocation]);
+  }, [setLocation]);
 
   const updateSession = async (updates: Partial<TestSession>) => {
     if (!session) return;
