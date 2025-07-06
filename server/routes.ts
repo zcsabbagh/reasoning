@@ -45,7 +45,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return `https://${domains[0]}`;
     }
     // Fallback to manual production URL
-    return "https://hinton.world";
+    return "https://www.hinton.world";
   };
   
   const baseURL = getBaseURL();
@@ -55,6 +55,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   console.log('Base URL:', baseURL);
   console.log('Callback URL:', callbackURL);
   console.log('Client ID:', process.env.LINKEDIN_CLIENT_ID);
+  console.log('Environment check - REPLIT_DEV_DOMAIN:', process.env.REPLIT_DEV_DOMAIN);
+  console.log('Environment check - REPLIT_DOMAINS:', process.env.REPLIT_DOMAINS);
     
   // LinkedIn OpenID Connect Strategy using modern API
   passport.use('linkedin', new OAuth2Strategy({
@@ -243,6 +245,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
       callbackURL,
       clientId: process.env.LINKEDIN_CLIENT_ID,
       isConfigured: !!(process.env.LINKEDIN_CLIENT_ID && process.env.LINKEDIN_CLIENT_SECRET)
+    });
+  });
+
+  // Debug endpoint to check current URL configuration
+  app.get("/debug/oauth-config", (req, res) => {
+    res.json({
+      baseURL: baseURL,
+      callbackURL: callbackURL,
+      currentHost: req.get('host'),
+      currentProtocol: req.protocol,
+      fullCurrentURL: `${req.protocol}://${req.get('host')}`,
+      environment: process.env.NODE_ENV,
+      devDomain: process.env.REPLIT_DEV_DOMAIN,
+      prodDomains: process.env.REPLIT_DOMAINS,
+      userAgent: req.get('user-agent'),
+      headers: req.headers
     });
   });
   
