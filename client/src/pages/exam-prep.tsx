@@ -26,34 +26,18 @@ export default function ExamPrep() {
 
   const requestMicrophoneAccess = async () => {
     try {
-      const mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      console.log('Requesting microphone access...');
+      const mediaStream = await navigator.mediaDevices.getUserMedia({ 
+        audio: {
+          echoCancellation: false,
+          noiseSuppression: false,
+          autoGainControl: false
+        }
+      });
+      console.log('Microphone access granted');
       setMicPermission('granted');
       setStream(mediaStream);
       setCanStartExam(true);
-      
-      // Set up audio level monitoring
-      const audioContext = new AudioContext();
-      const analyser = audioContext.createAnalyser();
-      const microphone = audioContext.createMediaStreamSource(mediaStream);
-      
-      microphone.connect(analyser);
-      analyser.fftSize = 256;
-      
-      const bufferLength = analyser.frequencyBinCount;
-      const dataArray = new Uint8Array(bufferLength);
-      
-      const updateAudioLevel = () => {
-        analyser.getByteFrequencyData(dataArray);
-        const sum = dataArray.reduce((a, b) => a + b, 0);
-        const average = sum / bufferLength;
-        setAudioLevel(average);
-        
-        if (isTestingMic) {
-          requestAnimationFrame(updateAudioLevel);
-        }
-      };
-      
-      updateAudioLevel();
     } catch (error) {
       console.error('Microphone access denied:', error);
       setMicPermission('denied');
@@ -61,25 +45,44 @@ export default function ExamPrep() {
   };
 
   const testMicrophone = async () => {
-    if (!stream) return;
+    if (!stream) {
+      console.error('No stream available for testing');
+      return;
+    }
     
+    console.log('Starting microphone test...');
     setIsTestingMic(true);
-    setAudioLevel(0); // Reset audio level
+    setAudioLevel(0);
+    window.audioTestStart = Date.now();
     
     try {
-      // Set up audio analysis for microphone testing
-      const audioContext = new AudioContext();
+      // Ensure the stream is active
+      const tracks = stream.getAudioTracks();
+      console.log('Audio tracks:', tracks.length, tracks.map(t => ({ enabled: t.enabled, readyState: t.readyState })));
+      
+      // Create a fresh audio context
+      const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+      console.log('Audio context state:', audioContext.state);
+      
+      // Resume context if suspended (required in some browsers)
+      if (audioContext.state === 'suspended') {
+        await audioContext.resume();
+        console.log('Audio context resumed');
+      }
+      
       const analyser = audioContext.createAnalyser();
       const microphone = audioContext.createMediaStreamSource(stream);
       
       microphone.connect(analyser);
-      analyser.fftSize = 2048; // Higher resolution for better detection
-      analyser.smoothingTimeConstant = 0.8;
+      analyser.fftSize = 1024;
+      analyser.smoothingTimeConstant = 0.3;
       
       const bufferLength = analyser.frequencyBinCount;
       const dataArray = new Uint8Array(bufferLength);
+      console.log('Audio analysis setup complete, buffer length:', bufferLength);
       
       let animationFrame: number;
+      let frameCount = 0;
       
       const updateAudioLevel = () => {
         if (!isTestingMic) {
@@ -89,38 +92,41 @@ export default function ExamPrep() {
           return;
         }
         
+        frameCount++;
         analyser.getByteTimeDomainData(dataArray);
         
-        // Calculate RMS (Root Mean Square) for better volume detection
+        // Calculate volume using time domain data
         let sum = 0;
+        let max = 0;
         for (let i = 0; i < bufferLength; i++) {
-          const sample = (dataArray[i] - 128) / 128; // Convert to -1 to 1 range
-          sum += sample * sample;
+          const sample = Math.abs(dataArray[i] - 128);
+          sum += sample;
+          max = Math.max(max, sample);
         }
         
-        const rms = Math.sqrt(sum / bufferLength);
-        const volume = Math.min(rms * 300, 100); // Scale and cap at 100
+        const average = sum / bufferLength;
+        const volume = Math.min(average * 2, 100); // Scale for better visibility
         
-        // Debug logging to help troubleshoot
-        if (Math.random() < 0.1) { // Log every ~10th frame to avoid spam
-          console.log('Audio level:', volume.toFixed(1), 'RMS:', rms.toFixed(4));
+        // Log every 30 frames for debugging
+        if (frameCount % 30 === 0) {
+          console.log(`Frame ${frameCount}: Volume=${volume.toFixed(1)}%, Avg=${average.toFixed(1)}, Max=${max}, Sample=${dataArray[0]}`);
         }
         
         setAudioLevel(volume);
-        
         animationFrame = requestAnimationFrame(updateAudioLevel);
       };
       
       updateAudioLevel();
       
-      // Stop testing after 10 seconds
+      // Stop testing after 15 seconds
       setTimeout(() => {
+        console.log('Microphone test complete');
         setIsTestingMic(false);
         if (animationFrame) {
           cancelAnimationFrame(animationFrame);
         }
         audioContext.close();
-      }, 10000);
+      }, 15000);
       
     } catch (error) {
       console.error('Error setting up microphone test:', error);
