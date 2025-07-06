@@ -2,7 +2,9 @@ import { useQuery } from "@tanstack/react-query";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Trophy, Medal, Award, User } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Trophy, Medal, Award, User, ArrowLeft } from "lucide-react";
+import { useLocation } from "wouter";
 import Navigation from "@/components/navigation";
 
 interface LeaderboardUser {
@@ -15,6 +17,8 @@ interface LeaderboardUser {
 }
 
 export default function Rankings() {
+  const [, setLocation] = useLocation();
+  
   const { data: leaderboard, isLoading, error } = useQuery<LeaderboardUser[]>({
     queryKey: ["/api/leaderboard"],
     queryFn: async () => {
@@ -103,14 +107,27 @@ export default function Rankings() {
     <>
       <Navigation />
       <div className="container mx-auto p-6 max-w-4xl">
-      <div className="text-center mb-8">
-        <h1 className="text-5xl font-bold mb-4 bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-          Rankings
-        </h1>
-        <p className="text-lg text-gray-600 max-w-2xl mx-auto">
-          Discover the top performers in our academic testing platform. 
-          View rankings based on exam scores and see how you stack up against other users.
-        </p>
+      <div className="mb-8">
+        <div className="flex items-center justify-between mb-6">
+          <Button
+            variant="outline"
+            onClick={() => setLocation("/account")}
+            className="flex items-center space-x-2"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            <span>Back to Account</span>
+          </Button>
+        </div>
+        
+        <div className="text-center">
+          <h1 className="text-5xl font-bold mb-4 bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+            Rankings
+          </h1>
+          <p className="text-lg text-gray-600 max-w-2xl mx-auto">
+            Discover the top performers in our academic testing platform. 
+            View rankings based on exam scores and see how you stack up against other users.
+          </p>
+        </div>
       </div>
 
       <div className="space-y-4">

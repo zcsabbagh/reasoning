@@ -202,24 +202,36 @@ export default function Account() {
 
                 <Separator />
 
-                <Button
-                  onClick={handleStartExam}
-                  disabled={createExamMutation.isPending}
-                  className="w-full bg-blue-600 hover:bg-blue-700"
-                  size="lg"
-                >
-                  {createExamMutation.isPending ? (
-                    <>
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                      Preparing Exam...
-                    </>
-                  ) : (
-                    <>
-                      <BookOpen className="w-4 h-4 mr-2" />
-                      Start New Exam
-                    </>
-                  )}
-                </Button>
+                <div className="space-y-3">
+                  <Button
+                    onClick={handleStartExam}
+                    disabled={createExamMutation.isPending}
+                    className="w-full bg-blue-600 hover:bg-blue-700"
+                    size="lg"
+                  >
+                    {createExamMutation.isPending ? (
+                      <>
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                        Preparing Exam...
+                      </>
+                    ) : (
+                      <>
+                        <BookOpen className="w-4 h-4 mr-2" />
+                        Start New Exam
+                      </>
+                    )}
+                  </Button>
+                  
+                  <Button
+                    variant="outline"
+                    onClick={() => setLocation("/rankings")}
+                    className="w-full border-purple-200 text-purple-700 hover:bg-purple-50"
+                    size="lg"
+                  >
+                    <Trophy className="w-4 h-4 mr-2" />
+                    View Global Rankings
+                  </Button>
+                </div>
               </CardContent>
             </Card>
           </div>
@@ -286,7 +298,7 @@ export default function Account() {
                               </div>
                             </div>
                             
-                            {status === "incomplete" && (
+                            {status === "incomplete" ? (
                               <Button
                                 variant="outline"
                                 size="sm"
@@ -294,6 +306,28 @@ export default function Account() {
                               >
                                 Continue
                               </Button>
+                            ) : (
+                              <div className="text-right">
+                                <div className="text-xs text-slate-500 mb-1">Score Breakdown</div>
+                                <div className="space-y-1 text-xs">
+                                  <div className="flex justify-between">
+                                    <span>Base Score:</span>
+                                    <span>+{session.baseScore}</span>
+                                  </div>
+                                  <div className="flex justify-between">
+                                    <span>Question Penalty:</span>
+                                    <span>-{session.questionPenalty}</span>
+                                  </div>
+                                  <div className="flex justify-between">
+                                    <span>Info Bonus:</span>
+                                    <span>+{session.infoGainBonus}</span>
+                                  </div>
+                                  <div className="flex justify-between font-semibold border-t pt-1">
+                                    <span>Total:</span>
+                                    <span>{score}/25</span>
+                                  </div>
+                                </div>
+                              </div>
                             )}
                           </div>
                         </div>

@@ -108,6 +108,8 @@ This is a full-stack academic test platform application built with React and Exp
 - July 06, 2025. Implemented persistent sessions using Supabase database with 30-day session cookies
 - July 06, 2025. Created account page with exam management, score tracking, and ability to start new exams or continue existing ones
 - July 06, 2025. Updated authentication flow to redirect to account page after LinkedIn sign-in
+- July 06, 2025. Enhanced exam history display with detailed score breakdowns for completed exams instead of continue buttons
+- July 06, 2025. Added seamless navigation between Account and Rankings pages with dedicated buttons
 
 ## User Preferences
 
