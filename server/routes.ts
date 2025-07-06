@@ -45,7 +45,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return `https://${domains[0]}`;
     }
     // Fallback to manual production URL
-    return "https://test-interaction-site-zcsabbagh.replit.app";
+    return "https://hinton.world";
   };
   
   const baseURL = getBaseURL();
