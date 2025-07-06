@@ -34,18 +34,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Configure LinkedIn OAuth strategy - auto-detect URL
   const getBaseURL = () => {
+    // In production, prioritize production domains over dev domains
+    if (process.env.NODE_ENV === 'production' && process.env.REPLIT_DOMAINS) {
+      // Get the production domain from the comma-separated list
+      const domains = process.env.REPLIT_DOMAINS.split(',');
+      // Look for hinton.world specifically
+      const hintonDomain = domains.find(domain => domain.includes('hinton.world'));
+      if (hintonDomain) {
+        return `https://${hintonDomain}`;
+      }
+      // Otherwise use the first domain
+      return `https://${domains[0]}`;
+    }
     // Use development domain for testing
     if (process.env.REPLIT_DEV_DOMAIN) {
       return `https://${process.env.REPLIT_DEV_DOMAIN}`;
     }
-    // Use production domain from environment or default
-    if (process.env.REPLIT_DOMAINS) {
-      // Get the first domain from the comma-separated list
-      const domains = process.env.REPLIT_DOMAINS.split(',');
-      return `https://${domains[0]}`;
-    }
     // Fallback to manual production URL
-    return "https://www.hinton.world";
+    return "https://hinton.world";
   };
   
   const baseURL = getBaseURL();
