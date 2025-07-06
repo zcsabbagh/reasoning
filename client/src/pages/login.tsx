@@ -47,10 +47,10 @@ export default function Login() {
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
           <CardTitle className="text-2xl font-bold text-slate-800">
-            Welcome to Citium
+            Welcome to Hinton
           </CardTitle>
           <CardDescription className="text-slate-600">
-            Sign in with your LinkedIn account to start your academic test
+            The exam that will define the AI era.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
@@ -65,10 +65,8 @@ export default function Login() {
           
           <div className="text-center space-y-4">
             <div className="text-sm text-slate-600">
-              <p>• Take up to 3 test questions</p>
-              <p>• Ask AI clarifying questions</p>
-              <p>• 10-minute timer per question</p>
-              <p>• Voice recording support</p>
+              <p>s</p>
+             
             </div>
             
             <Button
