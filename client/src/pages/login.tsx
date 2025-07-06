@@ -21,7 +21,7 @@ export default function Login() {
 
   useEffect(() => {
     if (user) {
-      setLocation("/test-platform");
+      setLocation("/account");
     }
   }, [user, setLocation]);
 

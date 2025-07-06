@@ -7,12 +7,14 @@ import TestPlatform from "@/pages/test-platform";
 import NotFound from "@/pages/not-found";
 import Login from "@/pages/login";
 import Rankings from "@/pages/rankings";
+import Account from "@/pages/account";
 
 function Router() {
   return (
     <Switch>
       <Route path="/" component={Login} />
       <Route path="/login" component={Login} />
+      <Route path="/account" component={Account} />
       <Route path="/test-platform" component={TestPlatform} />
       <Route path="/rankings" component={Rankings} />
       <Route component={NotFound} />

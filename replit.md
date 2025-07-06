@@ -105,6 +105,9 @@ This is a full-stack academic test platform application built with React and Exp
 - July 06, 2025. Removed email display from leaderboard and added numerical rank display (Rank #1, #2, etc.)
 - July 06, 2025. Created questions database with question-rubric pairs and API endpoints for random question selection
 - July 06, 2025. Implemented automatic database seeding with 3 academic questions covering history, urban planning, and environmental science
+- July 06, 2025. Implemented persistent sessions using Supabase database with 30-day session cookies
+- July 06, 2025. Created account page with exam management, score tracking, and ability to start new exams or continue existing ones
+- July 06, 2025. Updated authentication flow to redirect to account page after LinkedIn sign-in
 
 ## User Preferences
 

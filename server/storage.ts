@@ -14,13 +14,14 @@ import {
 } from "@shared/schema";
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
-import { eq, sql } from "drizzle-orm";
+import { eq, sql, desc } from "drizzle-orm";
 
 export interface IStorage {
   // Test Sessions
   createTestSession(session: InsertTestSession): Promise<TestSession>;
   getTestSession(id: number): Promise<TestSession | undefined>;
   updateTestSession(id: number, updates: Partial<TestSession>): Promise<TestSession | undefined>;
+  getUserSessions(userId: number): Promise<TestSession[]>;
   
   // Chat Messages
   createChatMessage(message: InsertChatMessage): Promise<ChatMessage>;
@@ -93,6 +94,20 @@ export class MemStorage implements IStorage {
     const updatedSession = { ...session, ...updates };
     this.testSessions.set(id, updatedSession);
     return updatedSession;
+  }
+
+  async getUserSessions(userId: number): Promise<TestSession[]> {
+    const userSessions: TestSession[] = [];
+    const sessionsArray = Array.from(this.testSessions.values());
+    for (const session of sessionsArray) {
+      if (session.userId === userId) {
+        userSessions.push(session);
+      }
+    }
+    // Sort by creation date (most recent first)
+    return userSessions.sort((a, b) => 
+      new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()
+    );
   }
 
   async createChatMessage(insertMessage: InsertChatMessage): Promise<ChatMessage> {
@@ -316,6 +331,15 @@ export class PostgresStorage implements IStorage {
       .where(eq(testSessions.id, id))
       .returning();
     return session;
+  }
+
+  async getUserSessions(userId: number): Promise<TestSession[]> {
+    const sessions = await this.db
+      .select()
+      .from(testSessions)
+      .where(eq(testSessions.userId, userId))
+      .orderBy(desc(testSessions.createdAt));
+    return sessions;
   }
 
   async createChatMessage(insertMessage: InsertChatMessage): Promise<ChatMessage> {

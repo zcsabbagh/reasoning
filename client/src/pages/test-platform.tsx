@@ -44,9 +44,25 @@ export default function TestPlatform() {
   const [showResults, setShowResults] = useState(false);
   const debounceRef = useRef<NodeJS.Timeout | null>(null);
 
-  useEffect(() => {
-    initializeSession();
-  }, []);
+  const loadExistingSession = async (sessionId: number) => {
+    try {
+      const response = await apiRequest("GET", `/api/test-sessions/${sessionId}`, {});
+      const existingSession = await response.json();
+      setSession(existingSession);
+    } catch (error) {
+      console.error("Failed to load existing session:", error);
+      toast({
+        title: "Error",
+        description: "Failed to load existing session. Starting a new one.",
+        variant: "destructive",
+      });
+      // Fall back to creating a new session
+      initializeSession();
+      return;
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const initializeSession = async () => {
     try {
@@ -82,6 +98,18 @@ export default function TestPlatform() {
       setIsLoading(false);
     }
   };
+
+  useEffect(() => {
+    // Check if there's a session ID in the URL params
+    const urlParams = new URLSearchParams(window.location.search);
+    const sessionId = urlParams.get('session');
+    
+    if (sessionId) {
+      loadExistingSession(parseInt(sessionId));
+    } else {
+      initializeSession();
+    }
+  }, []);
 
   const updateSession = async (updates: Partial<TestSession>) => {
     if (!session) return;

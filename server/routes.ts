@@ -190,6 +190,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get user's test sessions/exam history
+  app.get('/api/user/sessions', async (req, res) => {
+    try {
+      if (!req.isAuthenticated() || !req.user) {
+        return res.status(401).json({ error: 'Not authenticated' });
+      }
+      
+      const userId = (req.user as any).id;
+      const sessions = await storage.getUserSessions(userId);
+      res.json(sessions);
+    } catch (error) {
+      console.error('Error fetching user sessions:', error);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  });
+
   // Get leaderboard
   app.get("/api/leaderboard", async (req, res) => {
     try {
