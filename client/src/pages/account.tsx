@@ -63,16 +63,19 @@ export default function Account() {
   // Create new exam session mutation
   const createExamMutation = useMutation({
     mutationFn: async () => {
-      console.log('Creating new exam session...');
+      console.log('=== MUTATION START: Creating new exam session ===');
       try {
         // Get a random question first
-        console.log('Fetching random question...');
+        console.log('Step 1: Fetching random question...');
         const questionResponse = await apiRequest("GET", "/api/questions/random", {});
+        console.log('Step 1 Response status:', questionResponse.status, questionResponse.ok);
         if (!questionResponse.ok) {
-          throw new Error(`Failed to fetch question: ${questionResponse.status}`);
+          const errorText = await questionResponse.text();
+          console.error('Step 1 FAILED - Question fetch error:', questionResponse.status, errorText);
+          throw new Error(`Failed to fetch question: ${questionResponse.status} - ${errorText}`);
         }
         const randomQuestion = await questionResponse.json();
-        console.log('Random question received:', randomQuestion);
+        console.log('Step 1 SUCCESS - Random question received:', randomQuestion);
         
         // Create new session
         console.log('Creating test session...');
@@ -92,15 +95,17 @@ export default function Account() {
         console.log('Session data to send:', sessionData);
         
         const response = await apiRequest("POST", "/api/test-sessions", sessionData);
+        console.log('Step 2 Response status:', response.status, response.ok);
         
         if (!response.ok) {
           const errorText = await response.text();
-          console.error('Session creation failed:', response.status, errorText);
+          console.error('Step 2 FAILED - Session creation failed:', response.status, errorText);
           throw new Error(`Failed to create session: ${response.status} - ${errorText}`);
         }
         
         const session = await response.json();
-        console.log('Test session created:', session);
+        console.log('Step 2 SUCCESS - Test session created:', session);
+        console.log('=== MUTATION SUCCESS: Returning session ===');
         return session;
       } catch (error) {
         console.error('Error creating exam session:', error);
@@ -114,16 +119,31 @@ export default function Account() {
       }
     },
     onSuccess: (session) => {
-      console.log('Redirecting to exam prep with session:', session.id);
-      setLocation(`/exam-prep/${session.id}`);
+      console.log('=== MUTATION SUCCESS HANDLER START ===');
+      console.log('Session created successfully:', session);
+      console.log('Session ID:', session.id);
+      console.log('About to navigate to exam prep...');
+      try {
+        setLocation(`/exam-prep/${session.id}`);
+        console.log('Navigation successful');
+      } catch (navError) {
+        console.error('Navigation error:', navError);
+        throw navError;
+      }
+      console.log('=== MUTATION SUCCESS HANDLER END ===');
     },
     onError: (error) => {
-      console.error('Mutation error:', error);
+      console.error('=== MUTATION ERROR HANDLER START ===');
+      console.error('Mutation error details:', error);
+      console.error('Error type:', typeof error);
+      console.error('Error message:', error instanceof Error ? error.message : 'Unknown error');
+      console.error('Error stack:', error instanceof Error ? error.stack : 'No stack');
       toast({
         title: "Error",
         description: "Failed to create exam session. Please try again.",
         variant: "destructive",
       });
+      console.error('=== MUTATION ERROR HANDLER END ===');
     }
   });
 
@@ -183,9 +203,7 @@ export default function Account() {
         <div className="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
           <div className="flex items-center space-x-4">
             <h1 className="text-2xl font-bold text-slate-800">Hinton</h1>
-            <Badge variant="outline" className="text-blue-600 border-blue-600">
-              Academic Testing Platform
-            </Badge>
+
           </div>
           
           <div className="flex items-center space-x-4">
