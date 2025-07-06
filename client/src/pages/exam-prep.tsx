@@ -12,6 +12,7 @@ export default function ExamPrep() {
   const [micPermission, setMicPermission] = useState<'pending' | 'granted' | 'denied'>('pending');
   const [isTestingMic, setIsTestingMic] = useState(false);
   const [audioLevel, setAudioLevel] = useState(0);
+  const [smoothedAudioLevel, setSmoothedAudioLevel] = useState(0);
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [canStartExam, setCanStartExam] = useState(false);
 
@@ -112,6 +113,12 @@ export default function ExamPrep() {
         }
         
         setAudioLevel(volume);
+        
+        // Apply smoothing to reduce flickering - exponential moving average
+        setSmoothedAudioLevel(prev => {
+          const smoothingFactor = 0.3; // Higher value = more responsive, lower = smoother
+          return prev * (1 - smoothingFactor) + volume * smoothingFactor;
+        });
         
         // Continue animation loop
         animationFrame = requestAnimationFrame(updateAudioLevel);
@@ -246,13 +253,10 @@ export default function ExamPrep() {
                         <div className="flex items-center space-x-3 mb-3">
                           <Mic className="w-5 h-5 text-gray-600" />
                           <span className="text-sm font-medium">Audio Level</span>
-                          <span className="text-xs text-gray-500 font-mono">
-                            {audioLevel.toFixed(1)}%
-                          </span>
                           <div className="flex-1 flex items-end space-x-1 h-8">
                             {Array.from({ length: 10 }, (_, i) => {
                               const barLevel = (i + 1) * 1; // Each bar represents 1% increment for sensitive detection
-                              const isActive = audioLevel >= barLevel;
+                              const isActive = smoothedAudioLevel >= barLevel;
                               let barColor = 'bg-gray-300';
                               
                               if (isActive) {
