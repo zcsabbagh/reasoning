@@ -10,19 +10,26 @@ import session from "express-session";
 import passport from "passport";
 import { Strategy as OAuth2Strategy } from "passport-oauth2";
 import connectPgSimple from "connect-pg-simple";
+import { pool } from "./db";
 
 const upload = multer({ storage: multer.memoryStorage() });
 
 export async function registerRoutes(app: Express): Promise<Server> {
   
-  // Configure session middleware with memory store for now
+  // Configure persistent session store with Supabase
+  const PgSession = connectPgSimple(session);
   const sessionConfig: any = {
+    store: new PgSession({
+      pool: pool,
+      tableName: 'session', // Will be created automatically
+      createTableIfMissing: true
+    }),
     secret: process.env.SESSION_SECRET || 'citium-session-secret-key',
     resave: false,
     saveUninitialized: false,
     cookie: { 
       secure: process.env.NODE_ENV === 'production', // Enable secure cookies in production
-      maxAge: 24 * 60 * 60 * 1000, // 24 hours
+      maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days for persistent login
       sameSite: 'lax', // Allow cross-site cookies for OAuth
       httpOnly: true // Security: prevent XSS attacks
     }
@@ -158,7 +165,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             return res.redirect('/login?error=login_failed');
           }
           console.log('User successfully authenticated:', user.email);
-          return res.redirect('/test-platform');
+          return res.redirect('/account');
         });
       })(req, res, next);
     }
