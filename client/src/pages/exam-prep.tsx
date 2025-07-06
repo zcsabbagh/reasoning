@@ -64,36 +64,68 @@ export default function ExamPrep() {
     if (!stream) return;
     
     setIsTestingMic(true);
+    setAudioLevel(0); // Reset audio level
     
-    // Set up audio analysis for microphone testing
-    const audioContext = new AudioContext();
-    const analyser = audioContext.createAnalyser();
-    const microphone = audioContext.createMediaStreamSource(stream);
-    
-    microphone.connect(analyser);
-    analyser.fftSize = 256;
-    
-    const bufferLength = analyser.frequencyBinCount;
-    const dataArray = new Uint8Array(bufferLength);
-    
-    const updateAudioLevel = () => {
-      if (!isTestingMic) return;
+    try {
+      // Set up audio analysis for microphone testing
+      const audioContext = new AudioContext();
+      const analyser = audioContext.createAnalyser();
+      const microphone = audioContext.createMediaStreamSource(stream);
       
-      analyser.getByteFrequencyData(dataArray);
-      const sum = dataArray.reduce((a, b) => a + b, 0);
-      const average = sum / bufferLength;
-      setAudioLevel(average);
+      microphone.connect(analyser);
+      analyser.fftSize = 2048; // Higher resolution for better detection
+      analyser.smoothingTimeConstant = 0.8;
       
-      requestAnimationFrame(updateAudioLevel);
-    };
-    
-    updateAudioLevel();
-    
-    // Stop testing after 5 seconds
-    setTimeout(() => {
+      const bufferLength = analyser.frequencyBinCount;
+      const dataArray = new Uint8Array(bufferLength);
+      
+      let animationFrame: number;
+      
+      const updateAudioLevel = () => {
+        if (!isTestingMic) {
+          if (animationFrame) {
+            cancelAnimationFrame(animationFrame);
+          }
+          return;
+        }
+        
+        analyser.getByteTimeDomainData(dataArray);
+        
+        // Calculate RMS (Root Mean Square) for better volume detection
+        let sum = 0;
+        for (let i = 0; i < bufferLength; i++) {
+          const sample = (dataArray[i] - 128) / 128; // Convert to -1 to 1 range
+          sum += sample * sample;
+        }
+        
+        const rms = Math.sqrt(sum / bufferLength);
+        const volume = Math.min(rms * 300, 100); // Scale and cap at 100
+        
+        // Debug logging to help troubleshoot
+        if (Math.random() < 0.1) { // Log every ~10th frame to avoid spam
+          console.log('Audio level:', volume.toFixed(1), 'RMS:', rms.toFixed(4));
+        }
+        
+        setAudioLevel(volume);
+        
+        animationFrame = requestAnimationFrame(updateAudioLevel);
+      };
+      
+      updateAudioLevel();
+      
+      // Stop testing after 10 seconds
+      setTimeout(() => {
+        setIsTestingMic(false);
+        if (animationFrame) {
+          cancelAnimationFrame(animationFrame);
+        }
+        audioContext.close();
+      }, 10000);
+      
+    } catch (error) {
+      console.error('Error setting up microphone test:', error);
       setIsTestingMic(false);
-      audioContext.close();
-    }, 5000);
+    }
   };
 
   const stopMicTest = () => {
@@ -200,21 +232,39 @@ export default function ExamPrep() {
 
                     {isTestingMic && (
                       <div className="bg-gray-100 p-4 rounded-lg">
-                        <div className="flex items-center space-x-2 mb-2">
-                          <span className="text-sm font-medium">Audio Level:</span>
-                          <div className="flex-1 bg-gray-200 rounded-full h-2">
-                            <div 
-                              className={`h-2 rounded-full transition-all duration-100 ${
-                                audioLevel < 20 ? 'bg-red-500' :
-                                audioLevel < 50 ? 'bg-orange-500' : 
-                                'bg-green-500'
-                              }`}
-                              style={{ width: `${Math.min(audioLevel * 2, 100)}%` }}
-                            />
+                        <div className="flex items-center space-x-3 mb-3">
+                          <Mic className="w-5 h-5 text-gray-600" />
+                          <span className="text-sm font-medium">Audio Level</span>
+                          <div className="flex-1 flex items-end space-x-1 h-8">
+                            {Array.from({ length: 10 }, (_, i) => {
+                              const barLevel = (i + 1) * 10; // Each bar represents 10% increment
+                              const isActive = audioLevel >= barLevel;
+                              let barColor = 'bg-gray-300';
+                              
+                              if (isActive) {
+                                if (i < 3) barColor = 'bg-red-500';      // First 3 bars: red
+                                else if (i < 6) barColor = 'bg-orange-500'; // Next 3 bars: orange  
+                                else barColor = 'bg-green-500';         // Last 4 bars: green
+                              }
+                              
+                              return (
+                                <div
+                                  key={i}
+                                  className={`w-3 transition-all duration-75 ${barColor}`}
+                                  style={{ 
+                                    height: `${Math.min((i + 1) * 8, 32)}px`,
+                                    opacity: isActive ? 1 : 0.3
+                                  }}
+                                />
+                              );
+                            })}
                           </div>
+                          <span className="text-xs text-gray-500 w-12 text-right">
+                            {Math.round(audioLevel)}%
+                          </span>
                         </div>
                         <p className="text-sm text-gray-600">
-                          Speak into your microphone. You should see the audio level bar move.
+                          Speak into your microphone. You should see green bars when your voice is detected.
                         </p>
                       </div>
                     )}
