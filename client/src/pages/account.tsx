@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Trophy, Clock, BookOpen, User, LogOut, BarChart3, Target } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 
 interface User {
   id: number;
@@ -38,6 +39,7 @@ interface TestSession {
 export default function Account() {
   const [, setLocation] = useLocation();
   const queryClient = useQueryClient();
+  const { toast } = useToast();
 
   // Get current user
   const { data: user, isLoading: userLoading } = useQuery<User>({
@@ -54,29 +56,56 @@ export default function Account() {
   // Create new exam session mutation
   const createExamMutation = useMutation({
     mutationFn: async () => {
-      // Get a random question first
-      const questionResponse = await apiRequest("GET", "/api/questions/random", {});
-      const randomQuestion = await questionResponse.json();
-      
-      // Create new session
-      const response = await apiRequest("POST", "/api/test-sessions", {
-        taskQuestion: randomQuestion.questionText,
-        finalAnswer: "",
-        timeRemaining: 600,
-        questionsAsked: 0,
-        isSubmitted: false,
-        baseScore: 25,
-        questionPenalty: 0,
-        infoGainBonus: 0,
-        currentQuestionIndex: 0,
-        allQuestions: [randomQuestion.questionText],
-        allAnswers: ["", "", ""]
-      });
-      return response.json();
+      console.log('Creating new exam session...');
+      try {
+        // Get a random question first
+        console.log('Fetching random question...');
+        const questionResponse = await apiRequest("GET", "/api/questions/random", {});
+        if (!questionResponse.ok) {
+          throw new Error(`Failed to fetch question: ${questionResponse.status}`);
+        }
+        const randomQuestion = await questionResponse.json();
+        console.log('Random question received:', randomQuestion);
+        
+        // Create new session
+        console.log('Creating test session...');
+        const response = await apiRequest("POST", "/api/test-sessions", {
+          taskQuestion: randomQuestion.questionText,
+          finalAnswer: "",
+          timeRemaining: 600,
+          questionsAsked: 0,
+          isSubmitted: false,
+          baseScore: 25,
+          questionPenalty: 0,
+          infoGainBonus: 0,
+          currentQuestionIndex: 0,
+          allQuestions: [randomQuestion.questionText],
+          allAnswers: ["", "", ""]
+        });
+        
+        if (!response.ok) {
+          throw new Error(`Failed to create session: ${response.status}`);
+        }
+        
+        const session = await response.json();
+        console.log('Test session created:', session);
+        return session;
+      } catch (error) {
+        console.error('Error creating exam session:', error);
+        throw error;
+      }
     },
     onSuccess: (session) => {
-      // Redirect to exam prep with the new session
+      console.log('Redirecting to exam prep with session:', session.id);
       setLocation(`/exam-prep/${session.id}`);
+    },
+    onError: (error) => {
+      console.error('Mutation error:', error);
+      toast({
+        title: "Error",
+        description: "Failed to create exam session. Please try again.",
+        variant: "destructive",
+      });
     }
   });
 
@@ -85,6 +114,9 @@ export default function Account() {
   };
 
   const handleStartExam = () => {
+    console.log('Start New Exam button clicked');
+    console.log('User:', user);
+    console.log('Mutation pending:', createExamMutation.isPending);
     createExamMutation.mutate();
   };
 
