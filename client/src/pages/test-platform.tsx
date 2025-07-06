@@ -46,18 +46,26 @@ export default function TestPlatform() {
 
   const loadExistingSession = async (sessionId: number) => {
     try {
-      const response = await apiRequest("GET", `/api/test-sessions/${sessionId}`, {});
+      console.log(`Attempting to load session with ID: ${sessionId}`);
+      const response = await apiRequest("GET", `/api/test-sessions/${sessionId}`);
+      console.log('Session load response status:', response.status);
+      
+      if (!response.ok) {
+        throw new Error(`Failed to load session: ${response.status}`);
+      }
+      
       const existingSession = await response.json();
+      console.log('Loaded session successfully:', existingSession);
       setSession(existingSession);
     } catch (error) {
       console.error("Failed to load existing session:", error);
       toast({
         title: "Error",
-        description: "Failed to load existing session. Starting a new one.",
+        description: "Failed to initialize test session. Please refresh the page.",
         variant: "destructive",
       });
-      // Fall back to creating a new session
-      initializeSession();
+      // Don't fall back to creating a new session - redirect to account
+      setLocation('/account');
       return;
     } finally {
       setIsLoading(false);
@@ -100,16 +108,21 @@ export default function TestPlatform() {
   };
 
   useEffect(() => {
+    if (!user || userLoading) return; // Wait for authentication
+    
     // Check if there's a session ID in localStorage
     const sessionId = localStorage.getItem('currentExamSessionId');
+    console.log('Retrieved session ID from localStorage:', sessionId);
     
     if (sessionId) {
+      console.log('Loading existing session with ID:', sessionId);
       loadExistingSession(parseInt(sessionId));
     } else {
+      console.log('No session ID found, redirecting to account');
       // Redirect to account if no session ID
       setLocation('/account');
     }
-  }, [setLocation]);
+  }, [setLocation, user, userLoading]);
 
   const updateSession = async (updates: Partial<TestSession>) => {
     if (!session) return;

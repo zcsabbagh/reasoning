@@ -64,8 +64,35 @@ export default function ExamPrep() {
     if (!stream) return;
     
     setIsTestingMic(true);
+    
+    // Set up audio analysis for microphone testing
+    const audioContext = new AudioContext();
+    const analyser = audioContext.createAnalyser();
+    const microphone = audioContext.createMediaStreamSource(stream);
+    
+    microphone.connect(analyser);
+    analyser.fftSize = 256;
+    
+    const bufferLength = analyser.frequencyBinCount;
+    const dataArray = new Uint8Array(bufferLength);
+    
+    const updateAudioLevel = () => {
+      if (!isTestingMic) return;
+      
+      analyser.getByteFrequencyData(dataArray);
+      const sum = dataArray.reduce((a, b) => a + b, 0);
+      const average = sum / bufferLength;
+      setAudioLevel(average);
+      
+      requestAnimationFrame(updateAudioLevel);
+    };
+    
+    updateAudioLevel();
+    
+    // Stop testing after 5 seconds
     setTimeout(() => {
       setIsTestingMic(false);
+      audioContext.close();
     }, 5000);
   };
 
@@ -177,7 +204,11 @@ export default function ExamPrep() {
                           <span className="text-sm font-medium">Audio Level:</span>
                           <div className="flex-1 bg-gray-200 rounded-full h-2">
                             <div 
-                              className="bg-green-500 h-2 rounded-full transition-all duration-100"
+                              className={`h-2 rounded-full transition-all duration-100 ${
+                                audioLevel < 20 ? 'bg-red-500' :
+                                audioLevel < 50 ? 'bg-orange-500' : 
+                                'bg-green-500'
+                              }`}
                               style={{ width: `${Math.min(audioLevel * 2, 100)}%` }}
                             />
                           </div>
