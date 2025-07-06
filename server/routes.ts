@@ -175,6 +175,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Debug endpoint to check database status
+  app.get("/api/debug/users", async (req, res) => {
+    try {
+      const users = await storage.getLeaderboard(100); // Get more users for debugging
+      res.json({ 
+        count: users.length, 
+        users: users.map(u => ({
+          id: u.id,
+          firstName: u.firstName,
+          lastName: u.lastName,
+          email: u.email,
+          totalScore: u.totalScore
+        }))
+      });
+    } catch (error) {
+      console.error("Debug error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // Configuration endpoint for debugging
   app.get('/auth/config', (req, res) => {
     res.json({

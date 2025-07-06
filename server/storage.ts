@@ -176,9 +176,15 @@ export class PostgresStorage implements IStorage {
           "first_name" text NOT NULL,
           "last_name" text NOT NULL,
           "profile_picture_url" text,
+          "total_score" integer NOT NULL DEFAULT 20,
           "created_at" timestamp DEFAULT now(),
           CONSTRAINT "users_linkedin_id_unique" UNIQUE("linkedin_id")
         )
+      `);
+      
+      // Add total_score column if it doesn't exist (for existing tables)
+      await this.db.execute(sql`
+        ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "total_score" integer NOT NULL DEFAULT 20
       `);
       
       // Add user_id column to test_sessions table if it doesn't exist
