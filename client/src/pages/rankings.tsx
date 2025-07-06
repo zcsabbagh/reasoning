@@ -14,7 +14,7 @@ interface LeaderboardUser {
   email: string;
 }
 
-export default function RankLift() {
+export default function Rankings() {
   const { data: leaderboard, isLoading, error } = useQuery<LeaderboardUser[]>({
     queryKey: ["/api/leaderboard"],
     queryFn: async () => {
@@ -59,7 +59,7 @@ export default function RankLift() {
         <div className="container mx-auto p-6 max-w-4xl">
         <div className="text-center">
           <h1 className="text-4xl font-bold mb-8 bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-            RankLift
+            Rankings
           </h1>
           <div className="space-y-4">
             {[...Array(5)].map((_, i) => (
@@ -87,7 +87,7 @@ export default function RankLift() {
         <Navigation />
         <div className="container mx-auto p-6 max-w-4xl text-center">
           <h1 className="text-4xl font-bold mb-8 bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-            RankLift
+            Rankings
           </h1>
           <Card className="max-w-md mx-auto">
             <CardContent className="p-6">
@@ -105,7 +105,7 @@ export default function RankLift() {
       <div className="container mx-auto p-6 max-w-4xl">
       <div className="text-center mb-8">
         <h1 className="text-5xl font-bold mb-4 bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-          RankLift
+          Rankings
         </h1>
         <p className="text-lg text-gray-600 max-w-2xl mx-auto">
           Discover the top performers in our academic testing platform. 
@@ -157,7 +157,7 @@ export default function RankLift() {
                           {fullName}
                         </h3>
                         <p className="text-sm text-gray-500">
-                          {user.email}
+                          Rank #{rank}
                         </p>
                         {rank <= 3 && (
                           <Badge className={`mt-1 ${getRankBadgeColor(rank)}`}>

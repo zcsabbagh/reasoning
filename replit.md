@@ -101,6 +101,8 @@ This is a full-stack academic test platform application built with React and Exp
 - July 06, 2025. Created RankLift leaderboard page showing top users with profile photos, names, and exam scores
 - July 06, 2025. Added totalScore field to users table with default value of 20 for new users
 - July 06, 2025. Implemented automatic score updating when users complete exams
+- July 06, 2025. Renamed "RankLift" to "Rankings" throughout the application and updated URL paths from /ranklift to /rankings
+- July 06, 2025. Removed email display from leaderboard and added numerical rank display (Rank #1, #2, etc.)
 
 ## User Preferences
 

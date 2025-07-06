@@ -28,13 +28,13 @@ export default function Navigation() {
               </Button>
             </Link>
             
-            <Link href="/ranklift">
+            <Link href="/rankings">
               <Button 
-                variant={location === "/ranklift" ? "default" : "ghost"}
+                variant={location === "/rankings" ? "default" : "ghost"}
                 className="flex items-center space-x-2"
               >
                 <Trophy className="h-4 w-4" />
-                <span>RankLift</span>
+                <span>Rankings</span>
               </Button>
             </Link>
           </div>

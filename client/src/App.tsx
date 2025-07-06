@@ -6,7 +6,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import TestPlatform from "@/pages/test-platform";
 import NotFound from "@/pages/not-found";
 import Login from "@/pages/login";
-import RankLift from "@/pages/ranklift";
+import Rankings from "@/pages/rankings";
 
 function Router() {
   return (
@@ -14,7 +14,7 @@ function Router() {
       <Route path="/" component={Login} />
       <Route path="/login" component={Login} />
       <Route path="/test-platform" component={TestPlatform} />
-      <Route path="/ranklift" component={RankLift} />
+      <Route path="/rankings" component={Rankings} />
       <Route component={NotFound} />
     </Switch>
   );
