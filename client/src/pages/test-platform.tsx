@@ -41,6 +41,7 @@ export default function TestPlatform() {
   const [isLoading, setIsLoading] = useState(true);
   const [isGrading, setIsGrading] = useState(false);
   const [grades, setGrades] = useState<number[]>([]);
+  const [detailedGrades, setDetailedGrades] = useState<any[]>([]);
   const [showResults, setShowResults] = useState(false);
   const debounceRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -141,10 +142,11 @@ export default function TestPlatform() {
       setIsGrading(true);
       setShowResults(true);
       
-      const response = await apiRequest("POST", `/api/test-sessions/${sessionId}/grade`, {});
+      const response = await apiRequest("POST", `/api/test-sessions/${sessionId}/grade`);
       const result = await response.json();
       
       setGrades(result.grades);
+      setDetailedGrades(result.detailedGrades || []);
       setIsGrading(false);
     } catch (error) {
       console.error("Error grading test:", error);
@@ -407,16 +409,28 @@ export default function TestPlatform() {
 
       {/* Results Modal */}
       <Dialog open={showResults} onOpenChange={setShowResults}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle className="flex items-center space-x-3">
-              <div className="w-12 h-12 bg-academic-blue rounded-full flex items-center justify-center">
-                <ClipboardCheck className="w-6 h-6 text-white" />
+            <DialogTitle className="flex items-center justify-between">
+              <div className="flex items-center space-x-3">
+                <div className="w-12 h-12 bg-academic-blue rounded-full flex items-center justify-center">
+                  <ClipboardCheck className="w-6 h-6 text-white" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-slate-800">Test Results</h3>
+                  <p className="text-sm text-slate-600">Your performance and detailed feedback</p>
+                </div>
               </div>
-              <div>
-                <h3 className="text-lg font-semibold text-slate-800">Test Results</h3>
-                <p className="text-sm text-slate-600">Your performance on all questions</p>
-              </div>
+              <Button 
+                onClick={() => {
+                  setShowResults(false);
+                  setLocation('/account');
+                }}
+                variant="outline"
+                className="text-academic-blue border-academic-blue hover:bg-academic-blue hover:text-white"
+              >
+                Back to Account
+              </Button>
             </DialogTitle>
           </DialogHeader>
           
@@ -427,32 +441,96 @@ export default function TestPlatform() {
               <p className="text-sm text-slate-500">This may take a few moments</p>
             </div>
           ) : (
-            <div className="space-y-4">
-              {grades.map((grade, index) => (
-                <div key={index} className="flex items-center justify-between p-4 bg-slate-50 rounded-lg">
-                  <div>
-                    <h4 className="font-semibold text-slate-800">Question {index + 1}</h4>
-                    <p className="text-sm text-slate-600 truncate max-w-md">
-                      {session?.allQuestions[index]}
-                    </p>
-                  </div>
-                  <div className="text-right">
-                    <div className="text-2xl font-bold text-academic-blue">{grade}</div>
-                    <div className="text-sm text-slate-500">out of 25</div>
-                  </div>
-                </div>
-              ))}
-              
-              <div className="border-t pt-4">
+            <div className="space-y-6">
+              {/* Overall Score Summary */}
+              <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-6 rounded-lg border border-blue-200">
                 <div className="flex items-center justify-between">
-                  <span className="text-lg font-semibold text-slate-800">Total Score</span>
+                  <div>
+                    <h3 className="text-xl font-bold text-slate-800">Overall Score</h3>
+                    <p className="text-slate-600">Combined performance across all questions</p>
+                  </div>
                   <div className="text-right">
-                    <div className="text-3xl font-bold text-academic-blue">
+                    <div className="text-4xl font-bold text-academic-blue">
                       {grades.reduce((sum, grade) => sum + grade, 0)}
                     </div>
-                    <div className="text-sm text-slate-500">out of {grades.length * 25}</div>
+                    <div className="text-lg text-slate-500">out of {grades.length * 25}</div>
                   </div>
                 </div>
+              </div>
+
+              {/* Detailed Question Breakdown */}
+              <div className="space-y-6">
+                <h3 className="text-lg font-semibold text-slate-800">Question-by-Question Breakdown</h3>
+                {detailedGrades.map((detailedGrade, index) => (
+                  <div key={index} className="bg-white border border-slate-200 rounded-lg p-6 space-y-4">
+                    {/* Question Header */}
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <h4 className="font-semibold text-slate-800 mb-2">Question {index + 1}</h4>
+                        <p className="text-sm text-slate-600 leading-relaxed">
+                          {session?.allQuestions[index]}
+                        </p>
+                      </div>
+                      <div className="ml-4 text-right">
+                        <div className="text-3xl font-bold text-academic-blue">{detailedGrade.score}</div>
+                        <div className="text-sm text-slate-500">out of 25</div>
+                      </div>
+                    </div>
+
+                    {/* AI Feedback */}
+                    <div className="space-y-3">
+                      <div className="bg-blue-50 p-4 rounded-lg">
+                        <h5 className="font-medium text-blue-900 mb-2">AI Feedback</h5>
+                        <p className="text-blue-800 text-sm leading-relaxed">{detailedGrade.feedback}</p>
+                      </div>
+
+                      <div className="grid md:grid-cols-2 gap-4">
+                        {/* Strengths */}
+                        {detailedGrade.strengths && detailedGrade.strengths.length > 0 && (
+                          <div className="bg-green-50 p-4 rounded-lg">
+                            <h5 className="font-medium text-green-900 mb-2">Strengths</h5>
+                            <ul className="space-y-1">
+                              {detailedGrade.strengths.map((strength: string, idx: number) => (
+                                <li key={idx} className="text-green-800 text-sm flex items-start">
+                                  <span className="text-green-600 mr-2">•</span>
+                                  {strength}
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+
+                        {/* Areas for Improvement */}
+                        {detailedGrade.improvements && detailedGrade.improvements.length > 0 && (
+                          <div className="bg-orange-50 p-4 rounded-lg">
+                            <h5 className="font-medium text-orange-900 mb-2">Areas for Improvement</h5>
+                            <ul className="space-y-1">
+                              {detailedGrade.improvements.map((improvement: string, idx: number) => (
+                                <li key={idx} className="text-orange-800 text-sm flex items-start">
+                                  <span className="text-orange-600 mr-2">•</span>
+                                  {improvement}
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex justify-center pt-4">
+                <Button 
+                  onClick={() => {
+                    setShowResults(false);
+                    setLocation('/account');
+                  }}
+                  className="bg-academic-blue hover:bg-blue-700 text-white px-8 py-2"
+                >
+                  Return to Account Dashboard
+                </Button>
               </div>
             </div>
           )}

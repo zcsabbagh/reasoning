@@ -4,7 +4,7 @@ import { storage } from "./storage";
 import { insertTestSessionSchema, insertChatMessageSchema, insertUserSchema, insertQuestionSchema } from "@shared/schema";
 import { getClarificationResponse, generateFollowUpQuestions } from "./services/openai";
 import { transcribeAudio } from "./services/transcription";
-import { gradeAllAnswers } from "./services/grading";
+import { gradeAllAnswers, gradeAllAnswersWithFeedback } from "./services/grading";
 import multer from "multer";
 import session from "express-session";
 import passport from "passport";
@@ -686,7 +686,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "Session not found" });
       }
 
-      const grades = await gradeAllAnswers(session.allQuestions, session.allAnswers);
+      const detailedGrades = await gradeAllAnswersWithFeedback(session.allQuestions, session.allAnswers);
+      const grades = detailedGrades.map(dg => dg.score);
       const totalScore = grades.reduce((sum, grade) => sum + grade, 0);
       
       // Update user's total score if they're authenticated
@@ -694,7 +695,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         await storage.updateUserScore(session.userId, totalScore);
       }
       
-      res.json({ grades, totalScore });
+      res.json({ 
+        grades, 
+        totalScore, 
+        detailedGrades,
+        questions: session.allQuestions,
+        answers: session.allAnswers 
+      });
     } catch (error) {
       console.error("Error grading session:", error);
       res.status(500).json({ error: "Failed to grade session" });
