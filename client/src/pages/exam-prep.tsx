@@ -246,16 +246,19 @@ export default function ExamPrep() {
                         <div className="flex items-center space-x-3 mb-3">
                           <Mic className="w-5 h-5 text-gray-600" />
                           <span className="text-sm font-medium">Audio Level</span>
+                          <span className="text-xs text-gray-500 font-mono">
+                            {audioLevel.toFixed(1)}%
+                          </span>
                           <div className="flex-1 flex items-end space-x-1 h-8">
                             {Array.from({ length: 10 }, (_, i) => {
-                              const barLevel = (i + 1) * 10; // Each bar represents 10% increment
+                              const barLevel = (i + 1) * 1; // Each bar represents 1% increment for sensitive detection
                               const isActive = audioLevel >= barLevel;
                               let barColor = 'bg-gray-300';
                               
                               if (isActive) {
-                                if (i < 3) barColor = 'bg-red-500';      // First 3 bars: red
-                                else if (i < 6) barColor = 'bg-orange-500'; // Next 3 bars: orange  
-                                else barColor = 'bg-green-500';         // Last 4 bars: green
+                                if (i < 3) barColor = 'bg-green-500';      // First 3 bars: green (good detection)
+                                else if (i < 6) barColor = 'bg-blue-500';  // Next 3 bars: blue (strong signal)
+                                else barColor = 'bg-purple-500';          // Last 4 bars: purple (very strong)
                               }
                               
                               return (
