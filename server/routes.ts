@@ -21,8 +21,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     resave: false,
     saveUninitialized: false,
     cookie: { 
-      secure: false, // Set to true in production with HTTPS
-      maxAge: 24 * 60 * 60 * 1000 // 24 hours
+      secure: process.env.NODE_ENV === 'production', // Enable secure cookies in production
+      maxAge: 24 * 60 * 60 * 1000, // 24 hours
+      sameSite: 'lax' // Allow cross-site cookies for OAuth
     }
   };
   
@@ -273,18 +274,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Create a new test session
   app.post("/api/test-sessions", async (req, res) => {
     try {
+      console.log("Creating test session with data:", req.body);
+      console.log("User authenticated:", req.isAuthenticated());
+      console.log("User data:", req.user);
+      
       const sessionData = insertTestSessionSchema.parse(req.body);
       
       // Associate with current user if authenticated
       if (req.isAuthenticated() && req.user) {
         sessionData.userId = (req.user as any).id;
+        console.log("Associated with user ID:", (req.user as any).id);
       }
       
       const session = await storage.createTestSession(sessionData);
+      console.log("Session created successfully:", session.id);
       res.json(session);
     } catch (error) {
       console.error("Error creating test session:", error);
-      res.status(400).json({ message: "Invalid session data" });
+      console.error("Error details:", error.message);
+      if (error.issues) {
+        console.error("Validation errors:", error.issues);
+      }
+      res.status(400).json({ message: "Invalid session data", error: error.message });
     }
   });
 

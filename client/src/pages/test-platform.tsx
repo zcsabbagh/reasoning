@@ -50,8 +50,13 @@ export default function TestPlatform() {
 
   const initializeSession = async () => {
     try {
+      // First, get a random question from the database
+      const questionResponse = await apiRequest("GET", "/api/questions/random", {});
+      const randomQuestion = await questionResponse.json();
+      
+      // Create session with the random question
       const response = await apiRequest("POST", "/api/test-sessions", {
-        taskQuestion: "Assume the printing press never spread beyond Mainz after 1450. Pick one European region and outline two major political or cultural consequences by 1700 (≤250 words).",
+        taskQuestion: randomQuestion.questionText,
         finalAnswer: "",
         timeRemaining: 600,
         questionsAsked: 0,
@@ -60,7 +65,7 @@ export default function TestPlatform() {
         questionPenalty: 0,
         infoGainBonus: 0,
         currentQuestionIndex: 0,
-        allQuestions: ["Assume the printing press never spread beyond Mainz after 1450. Pick one European region and outline two major political or cultural consequences by 1700 (≤250 words)."],
+        allQuestions: [randomQuestion.questionText],
         allAnswers: ["", "", ""]
       });
       
