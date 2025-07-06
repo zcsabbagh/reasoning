@@ -83,12 +83,11 @@ export default function ExamPrep() {
       
       let animationFrame: number;
       let frameCount = 0;
+      let isRunning = true; // Local variable to control the loop
       
       const updateAudioLevel = () => {
-        if (!isTestingMic) {
-          if (animationFrame) {
-            cancelAnimationFrame(animationFrame);
-          }
+        if (!isRunning) {
+          console.log('Animation loop stopped');
           return;
         }
         
@@ -107,26 +106,32 @@ export default function ExamPrep() {
         const average = sum / bufferLength;
         const volume = Math.min(average * 2, 100); // Scale for better visibility
         
-        // Log every 30 frames for debugging
-        if (frameCount % 30 === 0) {
+        // Log every 30 frames for debugging (or first few frames)
+        if (frameCount <= 5 || frameCount % 30 === 0) {
           console.log(`Frame ${frameCount}: Volume=${volume.toFixed(1)}%, Avg=${average.toFixed(1)}, Max=${max}, Sample=${dataArray[0]}`);
         }
         
         setAudioLevel(volume);
+        
+        // Continue animation loop
         animationFrame = requestAnimationFrame(updateAudioLevel);
       };
       
+      console.log('Starting animation loop...');
       updateAudioLevel();
       
-      // Stop testing after 15 seconds
-      setTimeout(() => {
-        console.log('Microphone test complete');
+      // Store the timer ID to track it
+      const testTimer = setTimeout(() => {
+        console.log('Microphone test complete - timer expired');
+        isRunning = false;
         setIsTestingMic(false);
         if (animationFrame) {
           cancelAnimationFrame(animationFrame);
         }
         audioContext.close();
       }, 15000);
+      
+      console.log('Test timer set for 15 seconds');
       
     } catch (error) {
       console.error('Error setting up microphone test:', error);
