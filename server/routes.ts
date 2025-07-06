@@ -130,15 +130,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Serialize user for session
   passport.serializeUser((user: any, done) => {
+    console.log('Serializing user:', user.id, user.email);
     done(null, user.id);
   });
 
   // Deserialize user from session
   passport.deserializeUser(async (id: number, done) => {
     try {
+      console.log('Deserializing user with ID:', id);
       const user = await storage.getUserById(id);
+      console.log('Deserialized user:', user ? user.email : 'not found');
       done(null, user);
     } catch (error) {
+      console.error('Error deserializing user:', error);
       done(error, null);
     }
   });
