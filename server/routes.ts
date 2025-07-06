@@ -16,6 +16,9 @@ const upload = multer({ storage: multer.memoryStorage() });
 
 export async function registerRoutes(app: Express): Promise<Server> {
   
+  // Trust proxy for secure cookie handling in production
+  app.set('trust proxy', 1);
+  
   // Configure persistent session store with Supabase
   const PgSession = connectPgSimple(session);
   
@@ -41,7 +44,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     saveUninitialized: true, // Save new sessions even if empty
     rolling: true, // Reset the cookie MaxAge on every response
     cookie: { 
-      secure: process.env.NODE_ENV === 'production', // Enable secure cookies in production
+      secure: false, // Disable secure for now to fix production issues
       maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days for persistent login
       sameSite: 'lax', // Allow cross-site cookies for OAuth
       httpOnly: true // Security: prevent XSS attacks
@@ -196,6 +199,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
           console.log('Session after login:', req.session);
           console.log('User in session:', req.user);
           console.log('Session ID:', req.sessionID);
+          console.log('Environment:', process.env.NODE_ENV);
+          console.log('Cookie secure setting:', req.session.cookie?.secure);
+          console.log('Request headers host:', req.headers.host);
+          console.log('Request protocol:', req.protocol);
+          console.log('Request secure:', req.secure);
+          console.log('Request is secure (computed):', req.secure || req.headers['x-forwarded-proto'] === 'https');
+          console.log('X-Forwarded-Proto header:', req.headers['x-forwarded-proto']);
           
           // Force save the session to ensure it persists
           req.session.save((err) => {
@@ -222,10 +232,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
     console.log('Auth user check - isAuthenticated:', req.isAuthenticated());
     console.log('Auth user check - session:', req.session);
     console.log('Auth user check - user:', req.user);
+    console.log('Auth user check - environment:', process.env.NODE_ENV);
+    console.log('Auth user check - cookie secure:', req.session.cookie?.secure);
+    console.log('Auth user check - session ID:', req.sessionID);
+    console.log('Auth user check - request headers:', req.headers);
     
     if (req.isAuthenticated()) {
+      console.log('User authenticated successfully, returning user data');
       res.json(req.user);
     } else {
+      console.log('User not authenticated - session might be lost');
       res.status(401).json({ error: 'Not authenticated' });
     }
   });

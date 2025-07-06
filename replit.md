@@ -110,6 +110,7 @@ This is a full-stack academic test platform application built with React and Exp
 - July 06, 2025. Updated authentication flow to redirect to account page after LinkedIn sign-in
 - July 06, 2025. Enhanced exam history display with detailed score breakdowns for completed exams instead of continue buttons
 - July 06, 2025. Added seamless navigation between Account and Rankings pages with dedicated buttons
+- July 06, 2025. Fixed production authentication issues by adjusting proxy trust settings and cookie security configuration
 
 ## User Preferences
 
