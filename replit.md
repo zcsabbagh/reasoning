@@ -103,6 +103,8 @@ This is a full-stack academic test platform application built with React and Exp
 - July 06, 2025. Implemented automatic score updating when users complete exams
 - July 06, 2025. Renamed "RankLift" to "Rankings" throughout the application and updated URL paths from /ranklift to /rankings
 - July 06, 2025. Removed email display from leaderboard and added numerical rank display (Rank #1, #2, etc.)
+- July 06, 2025. Created questions database with question-rubric pairs and API endpoints for random question selection
+- July 06, 2025. Implemented automatic database seeding with 3 academic questions covering history, urban planning, and environmental science
 
 ## User Preferences
 

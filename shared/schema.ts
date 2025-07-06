@@ -38,6 +38,14 @@ export const chatMessages = pgTable("chat_messages", {
   timestamp: timestamp("timestamp").defaultNow(),
 });
 
+export const questions = pgTable("questions", {
+  id: serial("id").primaryKey(),
+  questionText: text("question_text").notNull(),
+  rubric: text("rubric").notNull(),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 export const insertTestSessionSchema = createInsertSchema(testSessions).omit({
   id: true,
   createdAt: true,
@@ -53,9 +61,16 @@ export const insertUserSchema = createInsertSchema(users).omit({
   createdAt: true,
 });
 
+export const insertQuestionSchema = createInsertSchema(questions).omit({
+  id: true,
+  createdAt: true,
+});
+
 export type InsertTestSession = z.infer<typeof insertTestSessionSchema>;
 export type TestSession = typeof testSessions.$inferSelect;
 export type InsertChatMessage = z.infer<typeof insertChatMessageSchema>;
 export type ChatMessage = typeof chatMessages.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
+export type InsertQuestion = z.infer<typeof insertQuestionSchema>;
+export type Question = typeof questions.$inferSelect;

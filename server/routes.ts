@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertTestSessionSchema, insertChatMessageSchema, insertUserSchema } from "@shared/schema";
+import { insertTestSessionSchema, insertChatMessageSchema, insertUserSchema, insertQuestionSchema } from "@shared/schema";
 import { getClarificationResponse, generateFollowUpQuestions } from "./services/openai";
 import { transcribeAudio } from "./services/transcription";
 import { gradeAllAnswers } from "./services/grading";
@@ -191,7 +191,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error) {
       console.error("Debug error:", error);
-      res.status(500).json({ error: error.message });
+      res.status(500).json({ error: (error as Error).message });
+    }
+  });
+
+  // Question routes
+  app.get("/api/questions/random", async (req, res) => {
+    try {
+      const question = await storage.getRandomQuestion();
+      if (!question) {
+        return res.status(404).json({ error: "No questions available" });
+      }
+      res.json(question);
+    } catch (error) {
+      console.error("Error fetching random question:", error);
+      res.status(500).json({ error: "Failed to fetch question" });
+    }
+  });
+
+  app.get("/api/questions", async (req, res) => {
+    try {
+      const questions = await storage.getAllQuestions();
+      res.json(questions);
+    } catch (error) {
+      console.error("Error fetching questions:", error);
+      res.status(500).json({ error: "Failed to fetch questions" });
+    }
+  });
+
+  app.post("/api/questions", async (req, res) => {
+    try {
+      const questionData = insertQuestionSchema.parse(req.body);
+      const question = await storage.createQuestion(questionData);
+      res.json(question);
+    } catch (error) {
+      console.error("Error creating question:", error);
+      res.status(400).json({ error: "Invalid question data" });
     }
   });
 

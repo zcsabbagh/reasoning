@@ -2,12 +2,15 @@ import {
   testSessions, 
   chatMessages, 
   users,
+  questions,
   type TestSession, 
   type ChatMessage, 
   type InsertTestSession, 
   type InsertChatMessage,
   type User,
-  type InsertUser
+  type InsertUser,
+  type Question,
+  type InsertQuestion
 } from "@shared/schema";
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
@@ -29,23 +32,32 @@ export interface IStorage {
   getUserById(id: number): Promise<User | undefined>;
   updateUserScore(userId: number, totalScore: number): Promise<User | undefined>;
   getLeaderboard(limit?: number): Promise<User[]>;
+  
+  // Questions
+  createQuestion(question: InsertQuestion): Promise<Question>;
+  getRandomQuestion(): Promise<Question | undefined>;
+  getAllQuestions(): Promise<Question[]>;
 }
 
 export class MemStorage implements IStorage {
   private testSessions: Map<number, TestSession>;
   private chatMessages: Map<number, ChatMessage>;
   private users: Map<number, User>;
+  private questions: Map<number, Question>;
   private currentSessionId: number;
   private currentMessageId: number;
   private currentUserId: number;
+  private currentQuestionId: number;
 
   constructor() {
     this.testSessions = new Map();
     this.chatMessages = new Map();
     this.users = new Map();
+    this.questions = new Map();
     this.currentSessionId = 1;
     this.currentMessageId = 1;
     this.currentUserId = 1;
+    this.currentQuestionId = 1;
   }
 
   async createTestSession(insertSession: InsertTestSession): Promise<TestSession> {
@@ -139,6 +151,31 @@ export class MemStorage implements IStorage {
       .sort((a, b) => (b.totalScore || 20) - (a.totalScore || 20))
       .slice(0, limit);
   }
+
+  // Question methods for MemStorage
+  async createQuestion(insertQuestion: InsertQuestion): Promise<Question> {
+    const id = this.currentQuestionId++;
+    const question: Question = {
+      id,
+      questionText: insertQuestion.questionText,
+      rubric: insertQuestion.rubric,
+      isActive: insertQuestion.isActive ?? true,
+      createdAt: new Date(),
+    };
+    this.questions.set(id, question);
+    return question;
+  }
+
+  async getRandomQuestion(): Promise<Question | undefined> {
+    const activeQuestions = Array.from(this.questions.values()).filter(q => q.isActive);
+    if (activeQuestions.length === 0) return undefined;
+    const randomIndex = Math.floor(Math.random() * activeQuestions.length);
+    return activeQuestions[randomIndex];
+  }
+
+  async getAllQuestions(): Promise<Question[]> {
+    return Array.from(this.questions.values()).filter(q => q.isActive);
+  }
 }
 
 // PostgreSQL Storage Implementation
@@ -191,10 +228,67 @@ export class PostgresStorage implements IStorage {
       await this.db.execute(sql`
         ALTER TABLE "test_sessions" ADD COLUMN IF NOT EXISTS "user_id" integer
       `);
+
+      // Create questions table if it doesn't exist
+      await this.db.execute(sql`
+        CREATE TABLE IF NOT EXISTS "questions" (
+          "id" serial PRIMARY KEY NOT NULL,
+          "question_text" text NOT NULL,
+          "rubric" text NOT NULL,
+          "is_active" boolean NOT NULL DEFAULT true,
+          "created_at" timestamp DEFAULT now()
+        )
+      `);
+      
+      // Seed questions if database is empty
+      await this.seedQuestions();
       
       console.log("Database schema initialized successfully");
     } catch (error) {
       console.error("Error initializing database schema:", error);
+    }
+  }
+
+  private async seedQuestions() {
+    try {
+      // Check if questions already exist
+      const existingQuestions = await this.db
+        .select()
+        .from(questions)
+        .limit(1);
+        
+      if (existingQuestions.length > 0) {
+        console.log("Questions already seeded, skipping...");
+        return;
+      }
+
+      const questionsToSeed = [
+        {
+          questionText: 'Assume the printing press never spread beyond Mainz after 1450. Pick one European region and outline two major political or cultural consequences that would likely emerge by 1700. Explain your causal chain in ≤ 250 words.',
+          rubric: 'You are the grader. Question text: "Assume the printing press never spread beyond Mainz after 1450. Pick one European region and outline two major political or cultural consequences by 1700 (≤250 words)." SCORING STEPS 1. Assess the final answer\'s quality Q on a 1–5 scale: 5 = insightful, well-sourced causal chain, both consequences plausible and detailed. 4 = largely correct, minor evidence gaps. 3 = plausible but shallow, some logical leaps. 2 = major inaccuracies or vague links. 1 = off-topic or incorrect. 2. Clarifying-question penalty: subtract 1 point for **each** clarifying question the candidate asked (max 3). 3. Info-gain bonus: for **each** question that demonstrably raised Q by ≥ 1 level (compare to the draft before that question), add +1 point. 4. Compute final score = (Q × 5) – (question penalties) + (info-gain bonuses). Cap at 25; minimum 0. Return integer.',
+          isActive: true
+        },
+        {
+          questionText: 'A mid-sized city (pop. 1 million) must cut peak-hour traffic delays by 40% in five years without expanding road capacity or public-transport budgets. Propose two innovative policy or technology interventions and explain the causal chain that achieves the target (≤ 250 words).',
+          rubric: 'You are the grader. Question text: "A mid-sized city must cut peak-hour traffic delays by 40% in five years without expanding road capacity or public-transport budgets. Propose two innovative interventions (≤250 words)." SCORING STEPS 1. Assess the final answer\'s quality Q on a 1–5 scale: 5 = innovative, feasible interventions with clear causal chains to 40% reduction. 4 = solid proposals, minor implementation gaps. 3 = plausible but lacks detail on achieving target. 2 = weak interventions or unrealistic assumptions. 1 = off-topic or incorrect. 2. Clarifying-question penalty: subtract 1 point for **each** clarifying question the candidate asked (max 3). 3. Info-gain bonus: for **each** question that demonstrably raised Q by ≥ 1 level (compare to the draft before that question), add +1 point. 4. Compute final score = (Q × 5) – (question penalties) + (info-gain bonuses). Cap at 25; minimum 0. Return integer.',
+          isActive: true
+        },
+        {
+          questionText: 'Scientists discover a fast-growing algae strain that produces high-yield bio-fuel but aggressively out-competes local aquatic life. Devise two balanced strategies that allow commercial fuel production and protect ecosystem health (≤ 250 words). Explain your reasoning.',
+          rubric: 'You are the grader. Question text: "Scientists discover a bio-fuel algae strain that crowds out local species. Devise two balanced strategies allowing fuel production and ecosystem protection (≤250 words)." SCORING STEPS 1. Quality Q (1-5): 5 = innovative, evidence-aware strategies; explains ecological and commercial trade-offs. 4 = solid, realistic plans with minor gaps. 3 = some feasibility or ecological concerns unaddressed. 2 = speculative or weak linkage to goals. 1 = irrelevant or wrong. 2. –1 point per clarifying question asked. 3. +1 point per question that raises Q by at least one level. 4. Score = (Q × 5) – penalties + bonuses (bounded 0–25).',
+          isActive: true
+        }
+      ];
+
+      for (const questionData of questionsToSeed) {
+        await this.db
+          .insert(questions)
+          .values(questionData);
+      }
+
+      console.log(`Seeded ${questionsToSeed.length} questions successfully`);
+    } catch (error) {
+      console.error("Error seeding questions:", error);
     }
   }
 
@@ -283,6 +377,34 @@ export class PostgresStorage implements IStorage {
       .orderBy(sql`${users.totalScore} DESC`)
       .limit(limit);
     return leaderboard;
+  }
+
+  // Question methods for PostgresStorage
+  async createQuestion(insertQuestion: InsertQuestion): Promise<Question> {
+    const [question] = await this.db
+      .insert(questions)
+      .values(insertQuestion)
+      .returning();
+    return question;
+  }
+
+  async getRandomQuestion(): Promise<Question | undefined> {
+    const [question] = await this.db
+      .select()
+      .from(questions)
+      .where(eq(questions.isActive, true))
+      .orderBy(sql`RANDOM()`)
+      .limit(1);
+    return question;
+  }
+
+  async getAllQuestions(): Promise<Question[]> {
+    const allQuestions = await this.db
+      .select()
+      .from(questions)
+      .where(eq(questions.isActive, true))
+      .orderBy(questions.createdAt);
+    return allQuestions;
   }
 }
 
