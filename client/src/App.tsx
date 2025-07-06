@@ -13,7 +13,7 @@ import ExamPrep from "@/pages/exam-prep";
 function Router() {
   return (
     <Switch>
-      <Route path="/" component={Login} />
+      <Route path="/" component={Account} />
       <Route path="/login" component={Login} />
       <Route path="/account" component={Account} />
       <Route path="/exam-prep/:sessionId" component={ExamPrep} />

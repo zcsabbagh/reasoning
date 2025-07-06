@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -42,10 +42,16 @@ export default function Account() {
   const { toast } = useToast();
 
   // Get current user
-  const { data: user, isLoading: userLoading } = useQuery<User>({
+  const { data: user, isLoading: userLoading, error: userError } = useQuery<User>({
     queryKey: ["/auth/user"],
     retry: false
   });
+
+  // Redirect to login if not authenticated
+  if (!userLoading && (userError || !user)) {
+    setLocation("/login");
+    return null;
+  }
 
   // Get user's test sessions/exam history
   const { data: sessions = [], isLoading: sessionsLoading } = useQuery<TestSession[]>({
