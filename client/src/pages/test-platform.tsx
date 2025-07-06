@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { useQuery } from "@tanstack/react-query";
-import { useLocation } from "wouter";
+import { useLocation, useRoute } from "wouter";
 import TestTimer from "@/components/test-timer";
 import ChatInterface from "@/components/chat-interface";
 import AnswerSection from "@/components/answer-section";
@@ -16,6 +16,7 @@ export default function TestPlatform() {
   const [session, setSession] = useState<TestSession | null>(null);
   const [showTimeWarning, setShowTimeWarning] = useState(false);
   const [, setLocation] = useLocation();
+  const [match, params] = useRoute('/test/:sessionId');
   const { toast } = useToast();
 
   // Check authentication
@@ -101,15 +102,15 @@ export default function TestPlatform() {
 
   useEffect(() => {
     // Check if there's a session ID in the URL params
-    const urlParams = new URLSearchParams(window.location.search);
-    const sessionId = urlParams.get('session');
+    const sessionId = params?.sessionId;
     
     if (sessionId) {
       loadExistingSession(parseInt(sessionId));
     } else {
-      initializeSession();
+      // Redirect to account if no session ID
+      setLocation('/account');
     }
-  }, []);
+  }, [params?.sessionId, setLocation]);
 
   const updateSession = async (updates: Partial<TestSession>) => {
     if (!session) return;
@@ -258,7 +259,7 @@ export default function TestPlatform() {
             <div className="flex items-center space-x-4">
               <div className="flex items-center space-x-2">
                 <ClipboardCheck className="w-5 h-5 text-academic-blue" />
-                <h1 className="text-xl font-semibold text-slate-800">Citium</h1>
+                <h1 className="text-xl font-semibold text-slate-800">Hinton</h1>
               </div>
             </div>
             

@@ -75,8 +75,8 @@ export default function Account() {
       return response.json();
     },
     onSuccess: (session) => {
-      // Redirect to test platform with the new session
-      setLocation(`/test-platform?session=${session.id}`);
+      // Redirect to exam prep with the new session
+      setLocation(`/exam-prep/${session.id}`);
     }
   });
 
@@ -132,7 +132,7 @@ export default function Account() {
       <div className="bg-white border-b shadow-sm">
         <div className="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
           <div className="flex items-center space-x-4">
-            <h1 className="text-2xl font-bold text-slate-800">Citium</h1>
+            <h1 className="text-2xl font-bold text-slate-800">Hinton</h1>
             <Badge variant="outline" className="text-blue-600 border-blue-600">
               Academic Testing Platform
             </Badge>
@@ -302,7 +302,7 @@ export default function Account() {
                               <Button
                                 variant="outline"
                                 size="sm"
-                                onClick={() => setLocation(`/test-platform?session=${session.id}`)}
+                                onClick={() => setLocation(`/test/${session.id}`)}
                               >
                                 Continue
                               </Button>

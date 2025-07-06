@@ -111,6 +111,7 @@ This is a full-stack academic test platform application built with React and Exp
 - July 06, 2025. Enhanced exam history display with detailed score breakdowns for completed exams instead of continue buttons
 - July 06, 2025. Added seamless navigation between Account and Rankings pages with dedicated buttons
 - July 06, 2025. Fixed production authentication issues by adjusting proxy trust settings and cookie security configuration
+- July 06, 2025. Created exam preparation page with microphone testing and comprehensive exam instructions including 30-minute time limit, no pause policy, and AI cheating detection warning
 
 ## User Preferences
 

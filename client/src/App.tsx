@@ -8,6 +8,7 @@ import NotFound from "@/pages/not-found";
 import Login from "@/pages/login";
 import Rankings from "@/pages/rankings";
 import Account from "@/pages/account";
+import ExamPrep from "@/pages/exam-prep";
 
 function Router() {
   return (
@@ -15,7 +16,8 @@ function Router() {
       <Route path="/" component={Login} />
       <Route path="/login" component={Login} />
       <Route path="/account" component={Account} />
-      <Route path="/test-platform" component={TestPlatform} />
+      <Route path="/exam-prep/:sessionId" component={ExamPrep} />
+      <Route path="/test/:sessionId" component={TestPlatform} />
       <Route path="/rankings" component={Rankings} />
       <Route component={NotFound} />
     </Switch>
