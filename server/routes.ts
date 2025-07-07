@@ -436,6 +436,55 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
   });
 
+  // Test database connectivity
+  app.get('/debug/db-test', async (req, res) => {
+    try {
+      console.log("Testing database connectivity...");
+      console.log("Storage type:", storage.constructor.name);
+      console.log("DATABASE_URL exists:", !!process.env.DATABASE_URL);
+      
+      // Try to get a random question (simple read test)
+      const question = await storage.getRandomQuestion();
+      console.log("Database read test successful");
+      
+      // Try to create a simple test session (write test)
+      const testSessionData = {
+        taskQuestion: "Test question",
+        finalAnswer: "",
+        timeRemaining: 600,
+        questionsAsked: 0,
+        isSubmitted: false,
+        baseScore: 25,
+        questionPenalty: 0,
+        infoGainBonus: 0,
+        currentQuestionIndex: 0,
+        allQuestions: ["Test question"],
+        allAnswers: ["", "", ""]
+      };
+      
+      const testSession = await storage.createTestSession(testSessionData);
+      console.log("Database write test successful");
+      
+      res.json({
+        success: true,
+        storageType: storage.constructor.name,
+        databaseUrlExists: !!process.env.DATABASE_URL,
+        testQuestion: question,
+        testSessionId: testSession.id,
+        environment: process.env.NODE_ENV
+      });
+    } catch (error) {
+      console.error("Database test failed:", error);
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : String(error),
+        storageType: storage.constructor.name,
+        databaseUrlExists: !!process.env.DATABASE_URL,
+        environment: process.env.NODE_ENV
+      });
+    }
+  });
+
   app.get('/debug/login-test-user', async (req, res) => {
     try {
       // Create a test user for debugging
@@ -477,28 +526,58 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Create a new test session
   app.post("/api/test-sessions", async (req, res) => {
     try {
-      console.log("Creating test session with data:", req.body);
+      console.log("=== Creating test session ===");
+      console.log("Request body:", JSON.stringify(req.body, null, 2));
       console.log("User authenticated:", req.isAuthenticated());
       console.log("User data:", req.user);
+      console.log("Session ID:", req.sessionID);
+      console.log("Environment:", process.env.NODE_ENV);
+      console.log("Database URL exists:", !!process.env.DATABASE_URL);
       
-      const sessionData = insertTestSessionSchema.parse(req.body);
+      // Validate session data with detailed error reporting
+      let sessionData;
+      try {
+        sessionData = insertTestSessionSchema.parse(req.body);
+        console.log("Schema validation successful");
+      } catch (validationError) {
+        console.error("Schema validation failed:", validationError);
+        if (validationError.issues) {
+          console.error("Validation issues:", JSON.stringify(validationError.issues, null, 2));
+        }
+        return res.status(400).json({ 
+          message: "Invalid session data", 
+          error: validationError.message,
+          issues: validationError.issues || []
+        });
+      }
       
       // Associate with current user if authenticated
       if (req.isAuthenticated() && req.user) {
         sessionData.userId = (req.user as any).id;
         console.log("Associated with user ID:", (req.user as any).id);
+      } else {
+        console.log("User not authenticated or no user data available");
       }
+      
+      console.log("Final session data to store:", JSON.stringify(sessionData, null, 2));
       
       const session = await storage.createTestSession(sessionData);
       console.log("Session created successfully:", session.id);
+      console.log("=== Session creation complete ===");
       res.json(session);
     } catch (error) {
-      console.error("Error creating test session:", error);
-      console.error("Error details:", error.message);
+      console.error("=== Error creating test session ===");
+      console.error("Error type:", typeof error);
+      console.error("Error message:", error instanceof Error ? error.message : String(error));
+      console.error("Error stack:", error instanceof Error ? error.stack : 'No stack');
       if (error.issues) {
         console.error("Validation errors:", error.issues);
       }
-      res.status(400).json({ message: "Invalid session data", error: error.message });
+      console.error("=== End error details ===");
+      res.status(500).json({ 
+        message: "Failed to create test session", 
+        error: error instanceof Error ? error.message : String(error)
+      });
     }
   });
 

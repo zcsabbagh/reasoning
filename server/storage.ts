@@ -314,11 +314,25 @@ export class PostgresStorage implements IStorage {
   }
 
   async createTestSession(insertSession: InsertTestSession): Promise<TestSession> {
-    const [session] = await this.db
-      .insert(testSessions)
-      .values(insertSession)
-      .returning();
-    return session;
+    try {
+      console.log("PostgresStorage.createTestSession called with:", JSON.stringify(insertSession, null, 2));
+      console.log("Database connection status:", this.db ? "connected" : "not connected");
+      
+      const [session] = await this.db
+        .insert(testSessions)
+        .values(insertSession)
+        .returning();
+        
+      console.log("PostgresStorage.createTestSession successful:", session);
+      return session;
+    } catch (error) {
+      console.error("PostgresStorage.createTestSession failed:");
+      console.error("Error type:", typeof error);
+      console.error("Error message:", error instanceof Error ? error.message : String(error));
+      console.error("Error stack:", error instanceof Error ? error.stack : 'No stack');
+      console.error("Insert data:", JSON.stringify(insertSession, null, 2));
+      throw error;
+    }
   }
 
   async getTestSession(id: number): Promise<TestSession | undefined> {
@@ -439,6 +453,8 @@ export class PostgresStorage implements IStorage {
 }
 
 // Use PostgreSQL storage if DATABASE_URL is available, otherwise fallback to MemStorage
+console.log('Storage initialization - DATABASE_URL exists:', !!process.env.DATABASE_URL);
 export const storage = process.env.DATABASE_URL 
   ? new PostgresStorage() 
   : new MemStorage();
+console.log('Storage implementation:', storage.constructor.name);

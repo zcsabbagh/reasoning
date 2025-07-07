@@ -102,8 +102,15 @@ export default function Account() {
         console.log('Step 2 Response status:', response.status, response.ok);
         
         if (!response.ok) {
-          const errorText = await response.text();
+          let errorText;
+          try {
+            errorText = await response.text();
+          } catch (e) {
+            errorText = 'Unable to read error response';
+          }
           console.error('Step 2 FAILED - Session creation failed:', response.status, errorText);
+          console.error('Request headers:', Object.fromEntries(response.headers.entries()));
+          console.error('Session data sent:', sessionData);
           throw new Error(`Failed to create session: ${response.status} - ${errorText}`);
         }
         
