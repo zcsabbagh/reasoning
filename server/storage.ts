@@ -206,11 +206,14 @@ export class PostgresStorage implements IStorage {
     // Handle URL encoding for special characters in password
     let connectionString = process.env.DATABASE_URL;
     
-    // Parse and reconstruct URL to handle special characters
+    // Parse and reconstruct URL to handle special characters like / in password
     const urlMatch = connectionString.match(/postgresql:\/\/([^:]+):([^@]+)@(.+)/);
     if (urlMatch) {
       const [, username, password, hostAndDb] = urlMatch;
-      connectionString = `postgresql://${username}:${encodeURIComponent(password)}@${hostAndDb}`;
+      // Encode the password properly, handling special characters like /
+      const encodedPassword = encodeURIComponent(password);
+      connectionString = `postgresql://${username}:${encodedPassword}@${hostAndDb}`;
+      console.log("Database URL after encoding (password hidden):", connectionString.replace(/:([^@]+)@/, ':***@'));
     }
     
     const queryClient = postgres(connectionString);
