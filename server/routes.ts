@@ -506,6 +506,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Check database URL configuration
+  app.get('/debug/db-config', async (req, res) => {
+    try {
+      const dbUrl = process.env.DATABASE_URL || '';
+      const hostMatch = dbUrl.match(/@([^:]+)/);
+      const host = hostMatch ? hostMatch[1] : 'unknown';
+      
+      res.json({
+        success: true,
+        environment: process.env.NODE_ENV || 'development',
+        databaseHost: host,
+        databaseUrlExists: !!process.env.DATABASE_URL,
+        storageType: storage.constructor.name,
+        isCorrectDatabase: host.includes('vwjbveaytnberlrnigyv')
+      });
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        error: error.message
+      });
+    }
+  });
+
   // Force database schema initialization - for production debugging
   app.get('/debug/force-init', async (req, res) => {
     try {
