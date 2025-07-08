@@ -253,16 +253,32 @@ export class PostgresStorage implements IStorage {
         ALTER TABLE "test_sessions" ADD COLUMN IF NOT EXISTS "final_score" integer
       `);
 
-      // Create questions table if it doesn't exist
+      // Create questions table - force creation in production
       await this.db.execute(sql`
         CREATE TABLE IF NOT EXISTS "questions" (
           "id" serial PRIMARY KEY NOT NULL,
           "question_text" text NOT NULL,
           "rubric" text NOT NULL,
           "is_active" boolean NOT NULL DEFAULT true,
-          "created_at" timestamp DEFAULT now()
+          "created_at" timestamp DEFAULT now() NOT NULL
         )
       `);
+      
+      // Verify questions table exists
+      try {
+        const result = await this.db.execute(sql`
+          SELECT table_name FROM information_schema.tables 
+          WHERE table_schema = 'public' AND table_name = 'questions'
+        `);
+        
+        if (result && result.rows && result.rows.length > 0) {
+          console.log("Questions table confirmed to exist");
+        } else {
+          console.log("Questions table verification unclear - proceeding with seeding");
+        }
+      } catch (error) {
+        console.log("Questions table verification failed, but proceeding:", error);
+      }
       
       // Seed questions if database is empty
       await this.seedQuestions();
@@ -275,15 +291,20 @@ export class PostgresStorage implements IStorage {
 
   private async seedQuestions() {
     try {
-      // Check if questions already exist
-      const existingQuestions = await this.db
-        .select()
-        .from(questions)
-        .limit(1);
+      // Check if questions already exist - using raw SQL to avoid schema issues
+      try {
+        const existingQuestions = await this.db.execute(sql`
+          SELECT COUNT(*) as count FROM questions
+        `);
         
-      if (existingQuestions.length > 0) {
-        console.log("Questions already seeded, skipping...");
-        return;
+        const questionCount = existingQuestions.rows?.[0]?.count || 0;
+        
+        if (questionCount > 0) {
+          console.log("Questions already seeded, skipping...");
+          return;
+        }
+      } catch (error) {
+        console.log("Could not check existing questions, proceeding with seeding:", error);
       }
 
       const questionsToSeed = [
@@ -304,10 +325,12 @@ export class PostgresStorage implements IStorage {
         }
       ];
 
+      // Insert questions using raw SQL to avoid schema issues during initialization
       for (const questionData of questionsToSeed) {
-        await this.db
-          .insert(questions)
-          .values(questionData);
+        await this.db.execute(sql`
+          INSERT INTO questions (question_text, rubric, is_active) 
+          VALUES (${questionData.questionText}, ${questionData.rubric}, ${questionData.isActive})
+        `);
       }
 
       console.log(`Seeded ${questionsToSeed.length} questions successfully`);
@@ -455,9 +478,10 @@ export class PostgresStorage implements IStorage {
   }
 }
 
-// Use PostgreSQL storage if DATABASE_URL is available, otherwise fallback to MemStorage
+// Use Supabase PostgreSQL storage exclusively
 console.log('Storage initialization - DATABASE_URL exists:', !!process.env.DATABASE_URL);
-export const storage = process.env.DATABASE_URL 
-  ? new PostgresStorage() 
-  : new MemStorage();
+if (!process.env.DATABASE_URL) {
+  throw new Error('DATABASE_URL is required - please configure Supabase connection');
+}
+export const storage = new PostgresStorage();
 console.log('Storage implementation:', storage.constructor.name);

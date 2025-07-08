@@ -112,6 +112,10 @@ This is a full-stack academic test platform application built with React and Exp
 - July 06, 2025. Added seamless navigation between Account and Rankings pages with dedicated buttons
 - July 06, 2025. Fixed production authentication issues by adjusting proxy trust settings and cookie security configuration
 - July 06, 2025. Created exam preparation page with microphone testing and comprehensive exam instructions including 30-minute time limit, no pause policy, and AI cheating detection warning
+- July 08, 2025. Migrated to AI SDK with multi-provider fallback (OpenAI → Anthropic → Gemini) for robust AI responses
+- July 08, 2025. Added reusable "Thinking..." indicator component for all AI interactions
+- July 08, 2025. Converted storage to Supabase-only architecture, removed in-memory storage fallback
+- July 08, 2025. Fixed questions table creation and seeding issues in production environment
 
 ## User Preferences
 
