@@ -27,6 +27,7 @@ export default function ChatInterface({
   const [isLoading, setIsLoading] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [isTranscribing, setIsTranscribing] = useState(false);
+  const [showThinking, setShowThinking] = useState(false);
   const [mediaRecorder, setMediaRecorder] = useState<MediaRecorder | null>(null);
   const { toast } = useToast();
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -80,6 +81,7 @@ export default function ChatInterface({
     };
     
     setMessages(prev => [...prev, tempUserMessage]);
+    setShowThinking(true);
 
     try {
       const response = await apiRequest("POST", `/api/chat/${sessionId}`, {
@@ -112,6 +114,7 @@ export default function ChatInterface({
       });
     } finally {
       setIsLoading(false);
+      setShowThinking(false);
     }
   };
 
@@ -267,40 +270,49 @@ export default function ChatInterface({
               <p className="text-sm">Start a conversation with the AI assistant</p>
             </div>
           ) : (
-            messages.map((message) => (
-              <div key={message.id} className={`flex ${message.isUser ? 'justify-end' : 'justify-start'}`}>
-                <div className={`${message.isUser ? 'max-w-xs' : 'w-full'} px-4 py-3 rounded-lg ${
-                  message.isUser 
-                    ? 'bg-academic-blue text-white' 
-                    : 'bg-slate-100 text-slate-800'
-                }`}>
-                  <div className={message.isUser ? "text-sm" : "text-sm leading-relaxed"}>
-                    {message.isUser ? (
-                      <p>{message.content}</p>
-                    ) : (
-                      <ReactMarkdown 
-                        components={{
-                          p: ({ children }) => <p className="mb-3 last:mb-0 text-slate-800 leading-relaxed">{children}</p>,
-                          ul: ({ children }) => <ul className="list-disc pl-5 mb-3 text-slate-800 space-y-1">{children}</ul>,
-                          ol: ({ children }) => <ol className="list-decimal pl-5 mb-3 text-slate-800 space-y-1">{children}</ol>,
-                          li: ({ children }) => <li className="text-slate-800 leading-relaxed">{children}</li>,
-                          strong: ({ children }) => <strong className="font-semibold text-slate-900">{children}</strong>,
-                          em: ({ children }) => <em className="italic text-slate-700">{children}</em>,
-                          code: ({ children }) => <code className="bg-slate-200 px-2 py-1 rounded text-xs text-slate-900">{children}</code>
-                        }}
-                      >
-                        {message.content}
-                      </ReactMarkdown>
-                    )}
-                  </div>
-                  <div className={`text-xs mt-1 ${
-                    message.isUser ? 'text-white/75' : 'text-slate-500'
+            <>
+              {messages.map((message) => (
+                <div key={message.id} className={`flex ${message.isUser ? 'justify-end' : 'justify-start'}`}>
+                  <div className={`${message.isUser ? 'max-w-xs' : 'w-full'} px-4 py-3 rounded-lg ${
+                    message.isUser 
+                      ? 'bg-academic-blue text-white' 
+                      : 'bg-slate-100 text-slate-800'
                   }`}>
-                    {formatTime(message.timestamp!)}
+                    <div className={message.isUser ? "text-sm" : "text-sm leading-relaxed"}>
+                      {message.isUser ? (
+                        <p>{message.content}</p>
+                      ) : (
+                        <ReactMarkdown 
+                          components={{
+                            p: ({ children }) => <p className="mb-3 last:mb-0 text-slate-800 leading-relaxed">{children}</p>,
+                            ul: ({ children }) => <ul className="list-disc pl-5 mb-3 text-slate-800 space-y-1">{children}</ul>,
+                            ol: ({ children }) => <ol className="list-decimal pl-5 mb-3 text-slate-800 space-y-1">{children}</ol>,
+                            li: ({ children }) => <li className="text-slate-800 leading-relaxed">{children}</li>,
+                            strong: ({ children }) => <strong className="font-semibold text-slate-900">{children}</strong>,
+                            em: ({ children }) => <em className="italic text-slate-700">{children}</em>,
+                            code: ({ children }) => <code className="bg-slate-200 px-2 py-1 rounded text-xs text-slate-900">{children}</code>
+                          }}
+                        >
+                          {message.content}
+                        </ReactMarkdown>
+                      )}
+                    </div>
+                    <div className={`text-xs mt-1 ${
+                      message.isUser ? 'text-white/75' : 'text-slate-500'
+                    }`}>
+                      {formatTime(message.timestamp!)}
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))
+              ))}
+              {showThinking && (
+                <div className="flex justify-start">
+                  <div className="w-full px-4 py-3 rounded-lg bg-slate-100 text-slate-800">
+                    <ThinkingIndicator />
+                  </div>
+                </div>
+              )}
+            </>
           )}
         </div>
       </ScrollArea>
