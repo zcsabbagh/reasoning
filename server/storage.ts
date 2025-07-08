@@ -253,7 +253,10 @@ export class PostgresStorage implements IStorage {
         ALTER TABLE "test_sessions" ADD COLUMN IF NOT EXISTS "final_score" integer
       `);
 
-      // Create questions table - force creation in production
+      // Create questions table with explicit environment logging
+      console.log("Creating questions table in environment:", process.env.NODE_ENV || 'development');
+      console.log("Database URL prefix:", process.env.DATABASE_URL?.substring(0, 30) + '...');
+      
       await this.db.execute(sql`
         CREATE TABLE IF NOT EXISTS "questions" (
           "id" serial PRIMARY KEY NOT NULL,
@@ -264,20 +267,50 @@ export class PostgresStorage implements IStorage {
         )
       `);
       
-      // Verify questions table exists
+      // Force table verification with detailed logging
       try {
         const result = await this.db.execute(sql`
           SELECT table_name FROM information_schema.tables 
           WHERE table_schema = 'public' AND table_name = 'questions'
         `);
         
+        console.log("Questions table check result:", result);
+        
         if (result && result.rows && result.rows.length > 0) {
-          console.log("Questions table confirmed to exist");
+          console.log("Questions table CONFIRMED to exist");
         } else {
-          console.log("Questions table verification unclear - proceeding with seeding");
+          console.log("WARNING: Questions table not found, forcing recreation");
+          // Force recreate if not found
+          await this.db.execute(sql`
+            DROP TABLE IF EXISTS "questions";
+            CREATE TABLE "questions" (
+              "id" serial PRIMARY KEY NOT NULL,
+              "question_text" text NOT NULL,
+              "rubric" text NOT NULL,
+              "is_active" boolean NOT NULL DEFAULT true,
+              "created_at" timestamp DEFAULT now() NOT NULL
+            )
+          `);
+          console.log("Questions table recreated forcefully");
         }
       } catch (error) {
-        console.log("Questions table verification failed, but proceeding:", error);
+        console.log("Questions table verification failed:", error);
+        console.log("Attempting to recreate questions table...");
+        try {
+          await this.db.execute(sql`
+            DROP TABLE IF EXISTS "questions";
+            CREATE TABLE "questions" (
+              "id" serial PRIMARY KEY NOT NULL,
+              "question_text" text NOT NULL,
+              "rubric" text NOT NULL,
+              "is_active" boolean NOT NULL DEFAULT true,
+              "created_at" timestamp DEFAULT now() NOT NULL
+            )
+          `);
+          console.log("Questions table recreated after error");
+        } catch (recreateError) {
+          console.error("Failed to recreate questions table:", recreateError);
+        }
       }
       
       // Seed questions if database is empty
