@@ -7,6 +7,7 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import type { ChatMessage } from "@shared/schema";
 import ReactMarkdown from "react-markdown";
+import ThinkingIndicator from "@/components/ui/thinking-indicator";
 
 interface ChatInterfaceProps {
   sessionId: number;
