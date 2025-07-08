@@ -32,7 +32,9 @@ export default function ChatInterface({
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
-    loadChatHistory();
+    if (sessionId) {
+      loadChatHistory();
+    }
   }, [sessionId]);
 
   useEffect(() => {

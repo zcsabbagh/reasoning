@@ -40,11 +40,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   const sessionConfig: any = {
     store: sessionStore,
     secret: process.env.SESSION_SECRET || 'citium-session-secret-key-fixed-for-production',
-    resave: true, // Force session save even if unmodified
-    saveUninitialized: true, // Save new sessions even if empty
+    resave: true, // Force save to ensure session persistence
+    saveUninitialized: true, // Save empty sessions to maintain consistency
     rolling: true, // Reset the cookie MaxAge on every response
     cookie: { 
-      secure: false, // Disable secure for now to fix production issues
+      secure: false, // Temporarily disable secure for debugging production issues
       maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days for persistent login
       sameSite: 'lax', // Allow cross-site cookies for OAuth
       httpOnly: true // Security: prevent XSS attacks
@@ -56,6 +56,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Initialize passport
   app.use(passport.initialize());
   app.use(passport.session());
+
+  // Add middleware to ensure session persistence
+  app.use((req, res, next) => {
+    // Force session save if user is authenticated
+    if (req.isAuthenticated() && req.user) {
+      req.session.save((err) => {
+        if (err) console.error('Session save error:', err);
+      });
+    }
+    next();
+  });
 
   // Configure LinkedIn OAuth strategy - auto-detect URL
   const getBaseURL = () => {
@@ -298,12 +309,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get user's test sessions/exam history
   app.get('/api/user/sessions', async (req, res) => {
     try {
+      console.log('=== User Sessions Request ===');
+      console.log('isAuthenticated:', req.isAuthenticated());
+      console.log('User:', req.user);
+      console.log('Session ID:', req.sessionID);
+      console.log('Session:', req.session);
+      console.log('Environment:', process.env.NODE_ENV);
+      
       if (!req.isAuthenticated() || !req.user) {
+        console.log('User not authenticated for sessions request');
         return res.status(401).json({ error: 'Not authenticated' });
       }
       
       const userId = (req.user as any).id;
+      console.log('Fetching sessions for user ID:', userId);
       const sessions = await storage.getUserSessions(userId);
+      console.log('Found sessions:', sessions.length);
       res.json(sessions);
     } catch (error) {
       console.error('Error fetching user sessions:', error);
