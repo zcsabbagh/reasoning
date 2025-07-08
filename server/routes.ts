@@ -506,6 +506,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Force database schema initialization - for production debugging
+  app.get('/debug/force-init', async (req, res) => {
+    try {
+      console.log('=== FORCE SCHEMA INITIALIZATION ===');
+      console.log('Environment:', process.env.NODE_ENV || 'development');
+      console.log('Database URL exists:', !!process.env.DATABASE_URL);
+      
+      // Force schema initialization
+      await (storage as any).initializeSchema();
+      console.log('Schema initialization completed');
+      
+      // Test question retrieval
+      const question = await storage.getRandomQuestion();
+      
+      res.json({
+        success: true,
+        message: 'Database schema forcefully initialized',
+        storageType: storage.constructor.name,
+        environment: process.env.NODE_ENV || 'development',
+        testQuestion: question
+      });
+    } catch (error) {
+      console.error('Force init failed:', error);
+      res.status(500).json({
+        success: false,
+        error: error.message,
+        storageType: storage.constructor.name,
+        environment: process.env.NODE_ENV || 'development'
+      });
+    }
+  });
+
   app.get('/debug/login-test-user', async (req, res) => {
     try {
       // Create a test user for debugging
