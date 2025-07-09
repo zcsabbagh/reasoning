@@ -561,6 +561,131 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Test all AI providers and API keys
+  app.get('/debug/test-ai-providers', async (req, res) => {
+    const testResults = {
+      timestamp: new Date().toISOString(),
+      environment: process.env.NODE_ENV || 'development',
+      providers: [] as any[]
+    };
+
+    const testPrompt = "What is 2+2? Answer with just the number.";
+    const testSystemPrompt = "You are a helpful assistant. Be concise.";
+
+    // Test each provider individually
+    const providers = [
+      {
+        name: 'OpenAI',
+        apiKey: process.env.OPENAI_API_KEY,
+        model: 'gpt-4o'
+      },
+      {
+        name: 'Anthropic', 
+        apiKey: process.env.ANTHROPIC_API_KEY,
+        model: 'claude-sonnet-4-20250514'
+      },
+      {
+        name: 'Gemini',
+        apiKey: process.env.GEMINI_API_KEY,
+        model: 'gemini-2.5-flash'
+      }
+    ];
+
+    for (const provider of providers) {
+      const result = {
+        name: provider.name,
+        model: provider.model,
+        hasApiKey: !!provider.apiKey,
+        keyPrefix: provider.apiKey ? provider.apiKey.substring(0, 8) + '...' : null,
+        status: 'unknown' as string,
+        response: null as string | null,
+        error: null as string | null,
+        responseTime: null as number | null
+      };
+
+      if (!provider.apiKey) {
+        result.status = 'missing_key';
+        result.error = 'API key not configured';
+      } else {
+        const startTime = Date.now();
+        
+        try {
+          // Test individual provider by importing and using directly
+          if (provider.name === 'OpenAI') {
+            const { openai } = await import('@ai-sdk/openai');
+            const { generateText } = await import('ai');
+            const response = await generateText({
+              model: openai(provider.model),
+              prompt: testPrompt,
+              system: testSystemPrompt,
+              maxTokens: 10,
+            });
+            result.response = response.text;
+          } else if (provider.name === 'Anthropic') {
+            const { anthropic } = await import('@ai-sdk/anthropic');
+            const { generateText } = await import('ai');
+            const response = await generateText({
+              model: anthropic(provider.model),
+              prompt: testPrompt,
+              system: testSystemPrompt,
+              maxTokens: 10,
+            });
+            result.response = response.text;
+          } else if (provider.name === 'Gemini') {
+            const { google } = await import('@ai-sdk/google');
+            const { generateText } = await import('ai');
+            const response = await generateText({
+              model: google(provider.model),
+              prompt: testPrompt,
+              system: testSystemPrompt,
+              maxTokens: 10,
+            });
+            result.response = response.text;
+          }
+          
+          result.responseTime = Date.now() - startTime;
+          result.status = 'success';
+        } catch (error) {
+          result.responseTime = Date.now() - startTime;
+          result.status = 'error';
+          result.error = error instanceof Error ? error.message : String(error);
+        }
+      }
+
+      testResults.providers.push(result);
+    }
+
+    // Test the fallback system
+    let fallbackResult = {
+      status: 'unknown' as string,
+      usedProvider: null as string | null,
+      response: null as string | null,
+      error: null as string | null
+    };
+
+    try {
+      const { generateAIResponse } = await import('./services/ai-sdk');
+      const fallbackResponse = await generateAIResponse(testPrompt, testSystemPrompt);
+      fallbackResult.status = 'success';
+      fallbackResult.response = fallbackResponse;
+      fallbackResult.usedProvider = 'First available provider';
+    } catch (error) {
+      fallbackResult.status = 'error';
+      fallbackResult.error = error instanceof Error ? error.message : String(error);
+    }
+
+    res.json({
+      success: true,
+      summary: {
+        workingProviders: testResults.providers.filter(p => p.status === 'success').length,
+        totalProviders: testResults.providers.length,
+        fallbackWorking: fallbackResult.status === 'success'
+      },
+      individual: testResults,
+      fallback: fallbackResult
+    });
+  });
+
   app.get('/debug/login-test-user', async (req, res) => {
     try {
       // Create a test user for debugging
