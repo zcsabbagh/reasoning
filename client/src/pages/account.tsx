@@ -6,7 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { Trophy, Clock, BookOpen, User, LogOut, BarChart3, Target } from "lucide-react";
+import { Trophy, Clock, BookOpen, User, LogOut, BarChart3, Target, ClipboardCheck, Loader2 } from "lucide-react";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 
@@ -41,6 +42,13 @@ export default function Account() {
   const [, setLocation] = useLocation();
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  
+  // Results modal state
+  const [showResults, setShowResults] = useState(false);
+  const [selectedSession, setSelectedSession] = useState<TestSession | null>(null);
+  const [isGrading, setIsGrading] = useState(false);
+  const [grades, setGrades] = useState<number[]>([]);
+  const [detailedGrades, setDetailedGrades] = useState<any[]>([]);
 
   // Get current user
   const { data: user, isLoading: userLoading, error: userError } = useQuery<User>({
@@ -187,6 +195,48 @@ export default function Account() {
       return { status: "completed", score: totalScore };
     }
     return { status: "incomplete", score: null };
+  };
+
+  const isSessionTimeElapsed = (session: TestSession) => {
+    // Calculate time elapsed since session was created
+    const sessionCreatedAt = new Date(session.createdAt);
+    const now = new Date();
+    const timeElapsed = now.getTime() - sessionCreatedAt.getTime();
+    
+    // Each exam has 30 minutes total (3 questions x 10 minutes each)
+    const totalTimeAllowed = 30 * 60 * 1000; // 30 minutes in milliseconds
+    
+    return timeElapsed > totalTimeAllowed;
+  };
+
+  const handleContinueSession = async (session: TestSession) => {
+    if (isSessionTimeElapsed(session)) {
+      // Time has elapsed - show results modal
+      setSelectedSession(session);
+      setIsGrading(true);
+      setShowResults(true);
+      
+      try {
+        // Grade the session
+        const response = await apiRequest("POST", `/api/test-sessions/${session.id}/grade`);
+        const result = await response.json();
+        
+        setGrades(result.grades);
+        setDetailedGrades(result.detailedGrades || []);
+        setIsGrading(false);
+      } catch (error) {
+        console.error("Error grading session:", error);
+        setIsGrading(false);
+        toast({
+          title: "Grading Error",
+          description: "Failed to grade your session. Please try again.",
+          variant: "destructive",
+        });
+      }
+    } else {
+      // Time hasn't elapsed - continue to test platform
+      setLocation(`/test/${session.id}`);
+    }
   };
 
   const formatDate = (dateString: string) => {
@@ -393,9 +443,9 @@ export default function Account() {
                               <Button
                                 variant="outline"
                                 size="sm"
-                                onClick={() => setLocation(`/test/${session.id}`)}
+                                onClick={() => handleContinueSession(session)}
                               >
-                                Continue
+                                {isSessionTimeElapsed(session) ? "View Results" : "Continue"}
                               </Button>
                             ) : (
                               <div className="text-right">
@@ -448,6 +498,136 @@ export default function Account() {
           </Alert>
         </div>
       </div>
+
+      {/* Results Modal */}
+      <Dialog open={showResults} onOpenChange={setShowResults}>
+        <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center justify-between">
+              <div className="flex items-center space-x-3">
+                <div className="w-12 h-12 bg-blue-600 rounded-full flex items-center justify-center">
+                  <ClipboardCheck className="w-6 h-6 text-white" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-slate-800">Exam Results</h3>
+                  <p className="text-sm text-slate-600">Your performance and detailed feedback</p>
+                </div>
+              </div>
+              <Button 
+                onClick={() => {
+                  setShowResults(false);
+                  setSelectedSession(null);
+                }}
+                variant="outline"
+                className="text-blue-600 border-blue-600 hover:bg-blue-600 hover:text-white"
+              >
+                Close
+              </Button>
+            </DialogTitle>
+          </DialogHeader>
+          
+          {isGrading ? (
+            <div className="flex flex-col items-center justify-center py-8">
+              <Loader2 className="w-8 h-8 animate-spin text-blue-600 mb-4" />
+              <p className="text-slate-600">Grading your answers...</p>
+              <p className="text-sm text-slate-500">This may take a few moments</p>
+            </div>
+          ) : (
+            <div className="space-y-6">
+              {/* Overall Score Summary */}
+              <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-6 rounded-lg border border-blue-200">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-xl font-bold text-slate-800">Overall Score</h3>
+                    <p className="text-slate-600">Combined performance across all questions</p>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-4xl font-bold text-blue-600">
+                      {grades.reduce((sum, grade) => sum + grade, 0)}
+                    </div>
+                    <div className="text-lg text-slate-500">out of {grades.length * 25}</div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Detailed Question Breakdown */}
+              <div className="space-y-6">
+                <h3 className="text-lg font-semibold text-slate-800">Question-by-Question Breakdown</h3>
+                {detailedGrades.map((detailedGrade, index) => (
+                  <div key={index} className="bg-white border border-slate-200 rounded-lg p-6 space-y-4">
+                    {/* Question Header */}
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <h4 className="font-semibold text-slate-800 mb-2">Question {index + 1}</h4>
+                        <p className="text-sm text-slate-600 leading-relaxed">
+                          {selectedSession?.allQuestions[index]}
+                        </p>
+                      </div>
+                      <div className="ml-4 text-right">
+                        <div className="text-3xl font-bold text-blue-600">{detailedGrade.score}</div>
+                        <div className="text-sm text-slate-500">out of 25</div>
+                      </div>
+                    </div>
+
+                    {/* AI Feedback */}
+                    <div className="space-y-3">
+                      <div className="bg-blue-50 p-4 rounded-lg">
+                        <h5 className="font-medium text-blue-900 mb-2">AI Feedback</h5>
+                        <p className="text-blue-800 text-sm leading-relaxed">{detailedGrade.feedback}</p>
+                      </div>
+
+                      <div className="grid md:grid-cols-2 gap-4">
+                        {/* Strengths */}
+                        {detailedGrade.strengths && detailedGrade.strengths.length > 0 && (
+                          <div className="bg-green-50 p-4 rounded-lg">
+                            <h5 className="font-medium text-green-900 mb-2">Strengths</h5>
+                            <ul className="space-y-1">
+                              {detailedGrade.strengths.map((strength: string, idx: number) => (
+                                <li key={idx} className="text-green-800 text-sm flex items-start">
+                                  <span className="text-green-600 mr-2">•</span>
+                                  {strength}
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+
+                        {/* Areas for Improvement */}
+                        {detailedGrade.improvements && detailedGrade.improvements.length > 0 && (
+                          <div className="bg-orange-50 p-4 rounded-lg">
+                            <h5 className="font-medium text-orange-900 mb-2">Areas for Improvement</h5>
+                            <ul className="space-y-1">
+                              {detailedGrade.improvements.map((improvement: string, idx: number) => (
+                                <li key={idx} className="text-orange-800 text-sm flex items-start">
+                                  <span className="text-orange-600 mr-2">•</span>
+                                  {improvement}
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex justify-center pt-4">
+                <Button 
+                  onClick={() => {
+                    setShowResults(false);
+                    setSelectedSession(null);
+                  }}
+                  className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-2"
+                >
+                  Close Results
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
