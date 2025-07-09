@@ -118,6 +118,7 @@ This is a full-stack academic test platform application built with React and Exp
 - July 08, 2025. Fixed questions table creation and seeding issues in production environment
 - July 09, 2025. Implemented comprehensive auto-save system with 5-second intervals to prevent data loss
 - July 09, 2025. Added database-persistent timer system that maintains timing across page reloads
+- July 09, 2025. Implemented true background timer using absolute start times that continues counting down even when user is away from webpage
 - July 09, 2025. Enhanced test session schema with auto-save fields: currentAnswerDraft, questionStartTimes, questionTimeElapsed, lastActivityAt
 - July 09, 2025. Updated TestTimer component to use database-persisted timing instead of client-side calculations
 - July 09, 2025. Added auto-submission functionality when question time limits expire

@@ -859,7 +859,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Initialize question start times if not set
       let questionStartTimes = session.questionStartTimes || [];
-      let questionTimeElapsed = session.questionTimeElapsed || [0, 0, 0];
       let needsUpdate = false;
       
       // Set start time for current question if not already set
@@ -868,13 +867,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         needsUpdate = true;
       }
       
-      // Calculate elapsed time for current question
+      // Calculate elapsed time for current question based on absolute start time
       const questionStartTime = new Date(questionStartTimes[session.currentQuestionIndex]);
       const currentQuestionElapsed = now.getTime() - questionStartTime.getTime();
-      
-      // Update elapsed time in database
-      questionTimeElapsed[session.currentQuestionIndex] = Math.floor(currentQuestionElapsed / 1000);
-      needsUpdate = true;
       
       // Check if current question time has expired
       const currentQuestionExpired = currentQuestionElapsed > currentQuestionTimeLimit;
@@ -890,7 +885,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           allAnswers: updatedAnswers,
           currentAnswerDraft: '', // Clear the draft after submission
           questionStartTimes: questionStartTimes,
-          questionTimeElapsed: questionTimeElapsed
+          lastActivityAt: now
         });
         
         autoSubmitted = true;
@@ -898,17 +893,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Update timing information
         await storage.updateTestSession(sessionId, {
           questionStartTimes: questionStartTimes,
-          questionTimeElapsed: questionTimeElapsed,
           lastActivityAt: now
         });
       }
       
+      // Calculate total session time elapsed (sum of all completed questions + current question)
+      let totalSessionElapsed = 0;
+      for (let i = 0; i < session.currentQuestionIndex; i++) {
+        totalSessionElapsed += currentQuestionTimeLimit; // Each completed question used full 10 minutes
+      }
+      totalSessionElapsed += currentQuestionElapsed; // Add current question elapsed time
+      
       res.json({
-        sessionTimeElapsed: questionTimeElapsed.reduce((sum, time) => sum + time, 0) * 1000,
+        sessionTimeElapsed: totalSessionElapsed,
         currentQuestionElapsed: currentQuestionElapsed,
         currentQuestionExpired: currentQuestionExpired,
         autoSubmitted: autoSubmitted,
-        timeRemaining: Math.max(0, currentQuestionTimeLimit - currentQuestionElapsed)
+        timeRemaining: Math.max(0, currentQuestionTimeLimit - currentQuestionElapsed),
+        questionStartTime: questionStartTimes[session.currentQuestionIndex]
       });
     } catch (error) {
       console.error("Error checking session timing:", error);
