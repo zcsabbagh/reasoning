@@ -235,7 +235,9 @@ export default function Account() {
       }
     } else {
       // Time hasn't elapsed - continue to test platform
-      setLocation(`/test/${session.id}`);
+      // Store session ID in localStorage for test platform to pick up
+      localStorage.setItem('currentExamSessionId', session.id.toString());
+      setLocation('/test');
     }
   };
 
