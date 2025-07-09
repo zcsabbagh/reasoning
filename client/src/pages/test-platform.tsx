@@ -355,6 +355,7 @@ export default function TestPlatform() {
               onAnswerChange={handleAnswerChange}
               onSubmit={handleSubmitAnswer}
               isSubmitted={session.isSubmitted}
+              sessionId={session.id}
             />
           </div>
 

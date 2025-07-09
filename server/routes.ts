@@ -818,6 +818,79 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Auto-save answer draft
+  app.post("/api/test-sessions/:id/autosave", async (req, res) => {
+    try {
+      const sessionId = parseInt(req.params.id);
+      const { answerDraft } = req.body;
+      
+      if (typeof answerDraft !== 'string') {
+        return res.status(400).json({ message: "Answer draft must be a string" });
+      }
+      
+      const session = await storage.updateTestSession(sessionId, {
+        currentAnswerDraft: answerDraft,
+        lastActivityAt: new Date()
+      });
+      
+      if (!session) {
+        return res.status(404).json({ message: "Test session not found" });
+      }
+      
+      res.json({ success: true, lastSaved: session.lastActivityAt });
+    } catch (error) {
+      console.error("Error auto-saving answer draft:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Check session timing and auto-submit if needed
+  app.post("/api/test-sessions/:id/check-timing", async (req, res) => {
+    try {
+      const sessionId = parseInt(req.params.id);
+      const session = await storage.getTestSession(sessionId);
+      
+      if (!session) {
+        return res.status(404).json({ message: "Test session not found" });
+      }
+      
+      const now = new Date();
+      const sessionStart = new Date(session.createdAt);
+      const timeElapsed = now.getTime() - sessionStart.getTime();
+      
+      // Calculate time for current question (10 minutes each)
+      const currentQuestionTimeLimit = 10 * 60 * 1000; // 10 minutes in milliseconds
+      const currentQuestionStartTime = sessionStart.getTime() + (session.currentQuestionIndex * currentQuestionTimeLimit);
+      const currentQuestionElapsed = now.getTime() - currentQuestionStartTime;
+      
+      // Check if current question time has expired
+      const currentQuestionExpired = currentQuestionElapsed > currentQuestionTimeLimit;
+      
+      // Auto-submit if time expired and there's a draft
+      if (currentQuestionExpired && session.currentAnswerDraft.trim() !== '') {
+        // Update the current answer in allAnswers array
+        const updatedAnswers = [...session.allAnswers];
+        updatedAnswers[session.currentQuestionIndex] = session.currentAnswerDraft;
+        
+        await storage.updateTestSession(sessionId, {
+          allAnswers: updatedAnswers,
+          currentAnswerDraft: '' // Clear the draft after submission
+        });
+      }
+      
+      res.json({
+        sessionTimeElapsed: timeElapsed,
+        currentQuestionElapsed: currentQuestionElapsed,
+        currentQuestionExpired: currentQuestionExpired,
+        autoSubmitted: currentQuestionExpired && session.currentAnswerDraft.trim() !== '',
+        timeRemaining: Math.max(0, currentQuestionTimeLimit - currentQuestionElapsed)
+      });
+    } catch (error) {
+      console.error("Error checking session timing:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
   // Send question to AI and get response
   app.post("/api/chat/:sessionId", async (req, res) => {
     try {

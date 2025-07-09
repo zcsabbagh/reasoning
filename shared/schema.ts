@@ -17,6 +17,10 @@ export const testSessions = pgTable("test_sessions", {
   currentQuestionIndex: integer("current_question_index").notNull().default(0),
   allQuestions: text("all_questions").array().notNull(),
   allAnswers: text("all_answers").array().notNull().default(["", "", ""]),
+  currentAnswerDraft: text("current_answer_draft").notNull().default(""), // Auto-saved draft for current question
+  questionStartTimes: text("question_start_times").array().notNull().default([]), // Timestamps when each question started
+  questionTimeElapsed: integer("question_time_elapsed").array().notNull().default([0, 0, 0]), // Time elapsed for each question in seconds
+  lastActivityAt: timestamp("last_activity_at").defaultNow(), // Track when user was last active
   createdAt: timestamp("created_at").defaultNow(),
 });
 

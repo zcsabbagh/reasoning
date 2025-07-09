@@ -253,6 +253,23 @@ export class PostgresStorage implements IStorage {
         ALTER TABLE "test_sessions" ADD COLUMN IF NOT EXISTS "final_score" integer
       `);
 
+      // Add new auto-save and timer tracking columns
+      await this.db.execute(sql`
+        ALTER TABLE "test_sessions" ADD COLUMN IF NOT EXISTS "current_answer_draft" text NOT NULL DEFAULT ''
+      `);
+      
+      await this.db.execute(sql`
+        ALTER TABLE "test_sessions" ADD COLUMN IF NOT EXISTS "question_start_times" text[]
+      `);
+      
+      await this.db.execute(sql`
+        ALTER TABLE "test_sessions" ADD COLUMN IF NOT EXISTS "question_time_elapsed" integer[] NOT NULL DEFAULT '{0,0,0}'
+      `);
+      
+      await this.db.execute(sql`
+        ALTER TABLE "test_sessions" ADD COLUMN IF NOT EXISTS "last_activity_at" timestamp DEFAULT now()
+      `);
+
       // Create questions table with explicit environment logging
       console.log("Creating questions table in environment:", process.env.NODE_ENV || 'development');
       console.log("Database URL prefix:", process.env.DATABASE_URL?.substring(0, 30) + '...');

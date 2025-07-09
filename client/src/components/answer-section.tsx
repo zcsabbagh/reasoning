@@ -2,26 +2,62 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { Mic, Square, Loader2 } from "lucide-react";
+import { Mic, Square, Loader2, Save, Clock } from "lucide-react";
+import { useAutoSave } from "@/hooks/use-auto-save";
+import { useDatabaseTimer } from "@/hooks/use-database-timer";
 
 interface AnswerSectionProps {
   initialAnswer: string;
   onAnswerChange: (answer: string) => void;
   onSubmit: (answer: string) => void;
   isSubmitted: boolean;
+  sessionId?: number;
 }
 
 export default function AnswerSection({ 
   initialAnswer, 
   onAnswerChange, 
   onSubmit, 
-  isSubmitted 
+  isSubmitted,
+  sessionId 
 }: AnswerSectionProps) {
   const [answer, setAnswer] = useState(initialAnswer);
   const [isRecording, setIsRecording] = useState(false);
   const [isTranscribing, setIsTranscribing] = useState(false);
   const [mediaRecorder, setMediaRecorder] = useState<MediaRecorder | null>(null);
+  const [lastSaved, setLastSaved] = useState<Date | null>(null);
   const { toast } = useToast();
+
+  // Auto-save functionality
+  useAutoSave({
+    sessionId: sessionId || 0,
+    text: answer,
+    enabled: !isSubmitted && !!sessionId,
+    onSave: (success) => {
+      if (success) {
+        setLastSaved(new Date());
+      }
+    }
+  });
+
+  // Database timer for persistent timing
+  const { timingInfo } = useDatabaseTimer({
+    sessionId: sessionId || 0,
+    enabled: !isSubmitted && !!sessionId,
+    onTimeUp: () => {
+      toast({
+        title: "Time's Up!",
+        description: "The time limit for this question has expired.",
+        variant: "destructive",
+      });
+    },
+    onAutoSubmit: () => {
+      toast({
+        title: "Auto-submitted",
+        description: "Your answer was automatically submitted when time expired.",
+      });
+    }
+  });
 
   useEffect(() => {
     setAnswer(initialAnswer);
@@ -180,6 +216,12 @@ export default function AnswerSection({
             </span> / 250 words
             {isRecording && <span className="ml-2 text-academic-red">• Recording...</span>}
             {isTranscribing && <span className="ml-2 text-academic-blue">• Transcribing...</span>}
+            {lastSaved && !isSubmitted && (
+              <span className="ml-2 text-green-600 flex items-center">
+                <Save className="w-3 h-3 mr-1" />
+                Auto-saved {new Date(lastSaved).toLocaleTimeString()}
+              </span>
+            )}
           </div>
           <div className="flex items-center space-x-2">
             <Button 
