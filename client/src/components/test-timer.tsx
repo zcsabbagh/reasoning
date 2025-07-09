@@ -1,48 +1,46 @@
 import { useState, useEffect } from "react";
 import { Clock, Timer, AlertTriangle } from "lucide-react";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+import { useDatabaseTimer } from "@/hooks/use-database-timer";
 
 interface TestTimerProps {
-  initialTime: number;
+  sessionId: number;
   onTimeUp: () => void;
   onTimeWarning: () => void;
 }
 
-export default function TestTimer({ initialTime, onTimeUp, onTimeWarning }: TestTimerProps) {
-  const [timeRemaining, setTimeRemaining] = useState(initialTime);
+export default function TestTimer({ sessionId, onTimeUp, onTimeWarning }: TestTimerProps) {
   const [hasWarned, setHasWarned] = useState(false);
+  
+  const { timingInfo } = useDatabaseTimer({
+    sessionId,
+    enabled: true,
+    onTimeUp,
+    onAutoSubmit: () => {
+      // Handle auto-submit if needed
+    }
+  });
 
+  // Show warning at 2 minutes for 10-minute questions
   useEffect(() => {
-    const timer = setInterval(() => {
-      setTimeRemaining((prev) => {
-        if (prev <= 1) {
-          clearInterval(timer);
-          onTimeUp();
-          return 0;
-        }
-        
-        // Show warning based on question duration
-        const warningTime = initialTime <= 600 ? 120 : 300; // 2 min for 10-min questions, 5 min for 30-min questions
-        if (prev === warningTime && !hasWarned) {
-          setHasWarned(true);
-          onTimeWarning();
-        }
-        
-        return prev - 1;
-      });
-    }, 1000);
+    if (timingInfo && timingInfo.timeRemaining <= 120000 && !hasWarned) { // 2 minutes in milliseconds
+      setHasWarned(true);
+      onTimeWarning();
+    }
+    
+    // Reset warning when moving to a new question (time goes back up significantly)
+    if (timingInfo && timingInfo.timeRemaining > 300000) { // 5 minutes
+      setHasWarned(false);
+    }
+  }, [timingInfo, hasWarned, onTimeWarning]);
 
-    return () => clearInterval(timer);
-  }, [onTimeUp, onTimeWarning, hasWarned]);
-
-  const minutes = Math.floor(timeRemaining / 60);
-  const seconds = timeRemaining % 60;
+  const timeRemaining = timingInfo?.timeRemaining || 0;
+  const timeRemainingSeconds = Math.floor(timeRemaining / 1000);
+  const minutes = Math.floor(timeRemainingSeconds / 60);
+  const seconds = timeRemainingSeconds % 60;
 
   const getTimerColor = () => {
-    // For 10-minute questions (600 seconds), warn at 2 minutes
-    // For 30-minute questions (1800 seconds), warn at 5 minutes
-    const warningThreshold = initialTime <= 600 ? 120 : 300;
-    const criticalThreshold = initialTime <= 600 ? 60 : 180;
+    const warningThreshold = 120000; // 2 minutes
+    const criticalThreshold = 60000; // 1 minute
     
     if (timeRemaining <= criticalThreshold) return "bg-academic-red";
     if (timeRemaining <= warningThreshold) return "bg-academic-amber";

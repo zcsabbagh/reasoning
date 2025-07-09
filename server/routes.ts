@@ -855,34 +855,59 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       const now = new Date();
-      const sessionStart = new Date(session.createdAt);
-      const timeElapsed = now.getTime() - sessionStart.getTime();
-      
-      // Calculate time for current question (10 minutes each)
       const currentQuestionTimeLimit = 10 * 60 * 1000; // 10 minutes in milliseconds
-      const currentQuestionStartTime = sessionStart.getTime() + (session.currentQuestionIndex * currentQuestionTimeLimit);
-      const currentQuestionElapsed = now.getTime() - currentQuestionStartTime;
+      
+      // Initialize question start times if not set
+      let questionStartTimes = session.questionStartTimes || [];
+      let questionTimeElapsed = session.questionTimeElapsed || [0, 0, 0];
+      let needsUpdate = false;
+      
+      // Set start time for current question if not already set
+      if (!questionStartTimes[session.currentQuestionIndex]) {
+        questionStartTimes[session.currentQuestionIndex] = now.toISOString();
+        needsUpdate = true;
+      }
+      
+      // Calculate elapsed time for current question
+      const questionStartTime = new Date(questionStartTimes[session.currentQuestionIndex]);
+      const currentQuestionElapsed = now.getTime() - questionStartTime.getTime();
+      
+      // Update elapsed time in database
+      questionTimeElapsed[session.currentQuestionIndex] = Math.floor(currentQuestionElapsed / 1000);
+      needsUpdate = true;
       
       // Check if current question time has expired
       const currentQuestionExpired = currentQuestionElapsed > currentQuestionTimeLimit;
       
       // Auto-submit if time expired and there's a draft
-      if (currentQuestionExpired && session.currentAnswerDraft.trim() !== '') {
+      let autoSubmitted = false;
+      if (currentQuestionExpired && session.currentAnswerDraft && session.currentAnswerDraft.trim() !== '') {
         // Update the current answer in allAnswers array
         const updatedAnswers = [...session.allAnswers];
         updatedAnswers[session.currentQuestionIndex] = session.currentAnswerDraft;
         
         await storage.updateTestSession(sessionId, {
           allAnswers: updatedAnswers,
-          currentAnswerDraft: '' // Clear the draft after submission
+          currentAnswerDraft: '', // Clear the draft after submission
+          questionStartTimes: questionStartTimes,
+          questionTimeElapsed: questionTimeElapsed
+        });
+        
+        autoSubmitted = true;
+      } else if (needsUpdate) {
+        // Update timing information
+        await storage.updateTestSession(sessionId, {
+          questionStartTimes: questionStartTimes,
+          questionTimeElapsed: questionTimeElapsed,
+          lastActivityAt: now
         });
       }
       
       res.json({
-        sessionTimeElapsed: timeElapsed,
+        sessionTimeElapsed: questionTimeElapsed.reduce((sum, time) => sum + time, 0) * 1000,
         currentQuestionElapsed: currentQuestionElapsed,
         currentQuestionExpired: currentQuestionExpired,
-        autoSubmitted: currentQuestionExpired && session.currentAnswerDraft.trim() !== '',
+        autoSubmitted: autoSubmitted,
         timeRemaining: Math.max(0, currentQuestionTimeLimit - currentQuestionElapsed)
       });
     } catch (error) {
@@ -1011,6 +1036,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const nextIndex = session.currentQuestionIndex + 1;
       const nextQuestion = allQuestions[nextIndex];
       
+      // Initialize timing for new question
+      const now = new Date();
+      let questionStartTimes = session.questionStartTimes || [];
+      let questionTimeElapsed = session.questionTimeElapsed || [0, 0, 0];
+      
+      // Set start time for the new question
+      questionStartTimes[nextIndex] = now.toISOString();
+      
       // Update session with next question
       const updatedSession = await storage.updateTestSession(sessionId, {
         currentQuestionIndex: nextIndex,
@@ -1019,7 +1052,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         timeRemaining: 600, // 10 minutes for follow-up questions
         questionsAsked: 0, // Reset questions asked for new question
         questionPenalty: 0, // Reset penalty for new question
-        finalAnswer: null // Clear previous answer
+        finalAnswer: null, // Clear previous answer
+        currentAnswerDraft: '', // Clear previous draft
+        questionStartTimes: questionStartTimes,
+        questionTimeElapsed: questionTimeElapsed,
+        lastActivityAt: now
       });
 
       res.json(updatedSession);

@@ -287,7 +287,7 @@ export default function TestPlatform() {
               
               <TestTimer
                 key={session.currentQuestionIndex}
-                initialTime={session.timeRemaining}
+                sessionId={session.id}
                 onTimeUp={handleTimeUp}
                 onTimeWarning={handleTimeWarning}
               />
@@ -351,7 +351,7 @@ export default function TestPlatform() {
 
             {/* Answer Section */}
             <AnswerSection
-              initialAnswer={session.finalAnswer || ""}
+              initialAnswer={session.currentAnswerDraft || session.finalAnswer || ""}
               onAnswerChange={handleAnswerChange}
               onSubmit={handleSubmitAnswer}
               isSubmitted={session.isSubmitted}
