@@ -50,7 +50,7 @@ export default function TestPlatform() {
   const debounceRef = useRef<NodeJS.Timeout | null>(null);
 
   // Proctoring hooks
-  const { state: proctorState, initializeProctoring } = useProctoring({
+  const { state: proctorState, initializeProctoring, requestFullscreen } = useProctoring({
     sessionId: session?.id,
     onViolation: (type: string, severity: string) => {
       setViolationType(type);
@@ -271,8 +271,8 @@ export default function TestPlatform() {
   const handleViolationModalClose = () => {
     setShowViolationModal(false);
     
-    // If it's a critical violation, redirect to account
-    if (violationType === 'camera_disabled' || violationType === 'fullscreen_exit') {
+    // Only redirect for camera disabled (truly critical)
+    if (violationType === 'camera_disabled') {
       setLocation('/account');
     }
   };
@@ -579,6 +579,7 @@ export default function TestPlatform() {
         isOpen={showViolationModal}
         violationType={violationType}
         onClose={handleViolationModalClose}
+        onRequestFullscreen={requestFullscreen}
       />
     </div>
   );

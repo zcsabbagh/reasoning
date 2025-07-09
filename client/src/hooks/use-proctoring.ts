@@ -43,8 +43,12 @@ export function useProctoring({ sessionId, onViolation, onNullification }: UsePr
       setStream(mediaStream);
       setState(prev => ({ ...prev, cameraEnabled: true, error: null }));
       
+      // Set up video element with the stream
       if (videoRef.current) {
         videoRef.current.srcObject = mediaStream;
+        videoRef.current.onloadedmetadata = () => {
+          videoRef.current?.play().catch(console.error);
+        };
       }
       
       return true;
@@ -204,6 +208,16 @@ export function useProctoring({ sessionId, onViolation, onNullification }: UsePr
       window.removeEventListener('beforeunload', handleBeforeUnload);
     };
   }, [sessionId]);
+
+  // Handle stream changes - ensure video element gets the stream
+  useEffect(() => {
+    if (stream && videoRef.current) {
+      videoRef.current.srcObject = stream;
+      videoRef.current.onloadedmetadata = () => {
+        videoRef.current?.play().catch(console.error);
+      };
+    }
+  }, [stream]);
 
   // Cleanup on unmount
   useEffect(() => {

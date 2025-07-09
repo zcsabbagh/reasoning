@@ -2,18 +2,37 @@ import { AlertTriangle, XCircle } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { useEffect, useState } from 'react';
 
 interface ProctoringViolationModalProps {
   isOpen: boolean;
   violationType: string;
   onClose: () => void;
+  onRequestFullscreen?: () => void;
 }
 
 export default function ProctoringViolationModal({ 
   isOpen, 
   violationType, 
-  onClose 
+  onClose,
+  onRequestFullscreen
 }: ProctoringViolationModalProps) {
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  
+  // Monitor fullscreen status
+  useEffect(() => {
+    const checkFullscreen = () => {
+      setIsFullscreen(Boolean(document.fullscreenElement));
+    };
+    
+    checkFullscreen();
+    document.addEventListener('fullscreenchange', checkFullscreen);
+    
+    return () => {
+      document.removeEventListener('fullscreenchange', checkFullscreen);
+    };
+  }, []);
+  
   if (!isOpen) return null;
 
   const getViolationDetails = (type: string) => {
@@ -26,9 +45,9 @@ export default function ProctoringViolationModal({
         };
       case 'fullscreen_exit':
         return {
-          title: 'Fullscreen Exited',
-          description: 'You have exited fullscreen mode during the exam.',
-          consequence: 'Your exam attempt has been nullified and removed from the database.'
+          title: 'Fullscreen Required',
+          description: 'You have exited fullscreen mode during the exam. Please return to fullscreen to continue.',
+          consequence: 'You must return to fullscreen mode to resume the exam.'
         };
       case 'tab_switch':
         return {
@@ -52,7 +71,9 @@ export default function ProctoringViolationModal({
   };
 
   const details = getViolationDetails(violationType);
-  const isCritical = violationType === 'camera_disabled' || violationType === 'fullscreen_exit';
+  const isCritical = violationType === 'camera_disabled';
+  const isFullscreenViolation = violationType === 'fullscreen_exit';
+  const canDismiss = !isFullscreenViolation || isFullscreen;
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
@@ -67,7 +88,7 @@ export default function ProctoringViolationModal({
           </CardDescription>
         </CardHeader>
         <CardContent className="pt-4">
-          <Alert variant={isCritical ? "destructive" : "default"} className="mb-4">
+          <Alert variant={isCritical ? "destructive" : isFullscreenViolation ? "default" : "default"} className="mb-4">
             <AlertTriangle className="h-4 w-4" />
             <AlertDescription>
               <strong>Consequence:</strong> {details.consequence}
@@ -85,12 +106,32 @@ export default function ProctoringViolationModal({
             </div>
           )}
 
-          <div className="flex justify-end">
+          {isFullscreenViolation && (
+            <div className="bg-yellow-50 p-4 rounded-lg mb-4">
+              <h4 className="font-medium text-yellow-900 mb-2">To continue the exam:</h4>
+              <ul className="text-sm text-yellow-800 space-y-1">
+                <li>• Click "Return to Fullscreen" below</li>
+                <li>• Stay in fullscreen mode for the remainder of the exam</li>
+                <li>• Additional fullscreen exits may result in nullification</li>
+              </ul>
+            </div>
+          )}
+
+          <div className="flex justify-end gap-2">
+            {isFullscreenViolation && !isFullscreen && (
+              <Button 
+                onClick={onRequestFullscreen}
+                variant="default"
+              >
+                Return to Fullscreen
+              </Button>
+            )}
             <Button 
               onClick={onClose}
               variant={isCritical ? "destructive" : "default"}
+              disabled={!canDismiss}
             >
-              {isCritical ? 'Return to Account' : 'Continue Exam'}
+              {isCritical ? 'Return to Account' : isFullscreenViolation ? 'Continue Exam' : 'Continue Exam'}
             </Button>
           </div>
         </CardContent>
