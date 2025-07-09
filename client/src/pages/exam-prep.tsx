@@ -4,7 +4,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Mic, MicOff, Clock, Shield, AlertTriangle, CheckCircle, Play } from 'lucide-react';
+import { Mic, MicOff, Clock, Shield, AlertTriangle, CheckCircle, Play, Monitor } from 'lucide-react';
+import ProctoringSetup from '@/components/proctoring-setup';
 
 export default function ExamPrep() {
   const [, setLocation] = useLocation();
@@ -15,6 +16,9 @@ export default function ExamPrep() {
   const [smoothedAudioLevel, setSmoothedAudioLevel] = useState(0);
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [canStartExam, setCanStartExam] = useState(false);
+  const [proctoringReady, setProctoringReady] = useState(false);
+  const [showProctoringViolation, setShowProctoringViolation] = useState(false);
+  const [violationMessage, setViolationMessage] = useState('');
 
   const sessionId = params?.sessionId;
 
@@ -38,7 +42,8 @@ export default function ExamPrep() {
       console.log('Microphone access granted');
       setMicPermission('granted');
       setStream(mediaStream);
-      setCanStartExam(true);
+      // Only allow starting exam if both microphone and proctoring are ready
+      setCanStartExam(proctoringReady);
     } catch (error) {
       console.error('Microphone access denied:', error);
       setMicPermission('denied');
@@ -153,6 +158,17 @@ export default function ExamPrep() {
     }
   };
 
+  const handleProctoringReady = (isReady: boolean) => {
+    setProctoringReady(isReady);
+    // Update exam start readiness based on both microphone and proctoring
+    setCanStartExam(micPermission === 'granted' && isReady);
+  };
+
+  const handleProctoringViolation = (type: string, severity: string) => {
+    setViolationMessage(`${type.replace('_', ' ')} detected (${severity})`);
+    setShowProctoringViolation(true);
+  };
+
   const startExam = () => {
     if (stream) {
       stream.getTracks().forEach(track => track.stop());
@@ -178,6 +194,24 @@ export default function ExamPrep() {
           <h1 className="text-3xl font-bold text-gray-900 mb-2">Exam Preparation</h1>
           <p className="text-gray-600">Please review the instructions and test your microphone before beginning</p>
         </div>
+
+        {/* Proctoring Setup */}
+        <div className="mb-8">
+          <ProctoringSetup 
+            onReady={handleProctoringReady}
+            onViolation={handleProctoringViolation}
+          />
+        </div>
+
+        {/* Proctoring Violation Alert */}
+        {showProctoringViolation && (
+          <Alert variant="destructive" className="mb-6">
+            <AlertTriangle className="h-4 w-4" />
+            <AlertDescription>
+              <strong>Proctoring Violation:</strong> {violationMessage}
+            </AlertDescription>
+          </Alert>
+        )}
 
         <div className="grid lg:grid-cols-2 gap-8">
           {/* Microphone Test */}
@@ -326,11 +360,11 @@ export default function ExamPrep() {
                 </div>
 
                 <div className="flex items-start space-x-3">
-                  <Shield className="w-5 h-5 text-red-600 mt-0.5" />
+                  <Monitor className="w-5 h-5 text-red-600 mt-0.5" />
                   <div>
-                    <h4 className="font-medium">AI Monitoring</h4>
+                    <h4 className="font-medium">Proctoring & AI Monitoring</h4>
                     <p className="text-sm text-gray-600">
-                      All responses will be analyzed by AI detection systems including Cluely to ensure academic integrity and prevent cheating.
+                      Camera monitoring and fullscreen requirement ensure exam integrity. AI systems also analyze all responses for academic integrity.
                     </p>
                   </div>
                 </div>
@@ -339,7 +373,7 @@ export default function ExamPrep() {
               <Alert>
                 <AlertTriangle className="h-4 w-4" />
                 <AlertDescription>
-                  <strong>Academic Integrity:</strong> Any form of cheating, plagiarism, or unauthorized assistance will result in exam disqualification.
+                  <strong>Academic Integrity:</strong> Any form of cheating, plagiarism, unauthorized assistance, or proctoring violations will result in immediate exam nullification.
                 </AlertDescription>
               </Alert>
 
@@ -349,6 +383,16 @@ export default function ExamPrep() {
                   <li>• Ask up to 3 clarifying questions per question</li>
                   <li>• Use voice recording to answer questions</li>
                   <li>• Take notes on paper (not digitally)</li>
+                </ul>
+              </div>
+
+              <div className="bg-red-50 p-4 rounded-lg">
+                <h4 className="font-medium text-red-900 mb-2">Proctoring Requirements:</h4>
+                <ul className="text-sm text-red-800 space-y-1">
+                  <li>• Camera must remain on throughout the exam</li>
+                  <li>• Must stay in fullscreen mode</li>
+                  <li>• Switching tabs or applications will be flagged</li>
+                  <li>• Violations result in immediate exam nullification</li>
                 </ul>
               </div>
             </CardContent>
@@ -367,6 +411,19 @@ export default function ExamPrep() {
                 <CheckCircle className="w-3 h-3 mr-1" />
                 Ready to Start
               </Badge>
+            )}
+            
+            {!canStartExam && (
+              <div className="flex items-center space-x-2 text-gray-600">
+                <div className="flex items-center space-x-1">
+                  <div className={`w-2 h-2 rounded-full ${micPermission === 'granted' ? 'bg-green-500' : 'bg-gray-400'}`} />
+                  <span className="text-sm">Microphone</span>
+                </div>
+                <div className="flex items-center space-x-1">
+                  <div className={`w-2 h-2 rounded-full ${proctoringReady ? 'bg-green-500' : 'bg-gray-400'}`} />
+                  <span className="text-sm">Proctoring</span>
+                </div>
+              </div>
             )}
             
             <Button 

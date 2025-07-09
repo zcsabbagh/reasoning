@@ -10,6 +10,8 @@ import { useLocation, useRoute } from "wouter";
 import TestTimer from "@/components/test-timer";
 import ChatInterface from "@/components/chat-interface";
 import AnswerSection from "@/components/answer-section";
+import ProctoringViolationModal from "@/components/proctoring-violation-modal";
+import { useProctoring } from "@/hooks/use-proctoring";
 import type { TestSession } from "@shared/schema";
 
 export default function TestPlatform() {
@@ -17,6 +19,8 @@ export default function TestPlatform() {
   const [showTimeWarning, setShowTimeWarning] = useState(false);
   const [, setLocation] = useLocation();
   const { toast } = useToast();
+  const [showViolationModal, setShowViolationModal] = useState(false);
+  const [violationType, setViolationType] = useState('');
 
   // Check authentication
   const { data: user, isLoading: userLoading, error: userError } = useQuery<{
@@ -45,6 +49,19 @@ export default function TestPlatform() {
   const [showResults, setShowResults] = useState(false);
   const debounceRef = useRef<NodeJS.Timeout | null>(null);
 
+  // Proctoring hooks
+  const { state: proctorState, initializeProctoring } = useProctoring({
+    sessionId: session?.id,
+    onViolation: (type: string, severity: string) => {
+      setViolationType(type);
+      setShowViolationModal(true);
+    },
+    onNullification: () => {
+      // Handle exam nullification
+      setLocation('/account');
+    }
+  });
+
   const loadExistingSession = async (sessionId: number) => {
     try {
       console.log(`Attempting to load session with ID: ${sessionId}`);
@@ -58,6 +75,11 @@ export default function TestPlatform() {
       const existingSession = await response.json();
       console.log('Loaded session successfully:', existingSession);
       setSession(existingSession);
+      
+      // Initialize proctoring for existing session
+      if (existingSession.id) {
+        await initializeProctoring(existingSession.id);
+      }
     } catch (error) {
       console.error("Failed to load existing session:", error);
       toast({
@@ -96,6 +118,11 @@ export default function TestPlatform() {
       
       const newSession = await response.json();
       setSession(newSession);
+      
+      // Initialize proctoring for new session
+      if (newSession.id) {
+        await initializeProctoring(newSession.id);
+      }
     } catch (error) {
       console.error("Failed to initialize session:", error);
       toast({
@@ -239,6 +266,15 @@ export default function TestPlatform() {
 
   const handleSessionUpdate = (updatedSession: TestSession) => {
     setSession(updatedSession);
+  };
+
+  const handleViolationModalClose = () => {
+    setShowViolationModal(false);
+    
+    // If it's a critical violation, redirect to account
+    if (violationType === 'camera_disabled' || violationType === 'fullscreen_exit') {
+      setLocation('/account');
+    }
   };
 
 
@@ -537,6 +573,13 @@ export default function TestPlatform() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Proctoring Violation Modal */}
+      <ProctoringViolationModal
+        isOpen={showViolationModal}
+        violationType={violationType}
+        onClose={handleViolationModalClose}
+      />
     </div>
   );
 }

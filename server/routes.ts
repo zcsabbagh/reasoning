@@ -5,6 +5,7 @@ import { insertTestSessionSchema, insertChatMessageSchema, insertUserSchema, ins
 import { getClarificationResponse, generateFollowUpQuestions } from "./services/openai";
 import { transcribeAudio } from "./services/transcription";
 import { gradeAllAnswers, gradeAllAnswersWithFeedback } from "./services/grading";
+import { proctorService } from "./services/proctoring";
 import multer from "multer";
 import session from "express-session";
 import passport from "passport";
@@ -1100,6 +1101,125 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error grading session:", error);
       res.status(500).json({ error: "Failed to grade session" });
+    }
+  });
+
+  // Proctoring API routes
+  
+  // Initialize proctoring session
+  app.post("/api/proctoring/initialize", async (req, res) => {
+    try {
+      const { sessionId } = req.body;
+      
+      if (!sessionId) {
+        return res.status(400).json({ message: "Session ID is required" });
+      }
+
+      const session = await storage.getTestSession(sessionId);
+      if (!session) {
+        return res.status(404).json({ message: "Test session not found" });
+      }
+
+      const proctorSession = proctorService.initializeSession(sessionId, session.userId);
+      
+      res.json({ 
+        success: true, 
+        proctorSession: {
+          sessionId: proctorSession.sessionId,
+          isActive: proctorSession.isActive,
+          startTime: proctorSession.startTime
+        }
+      });
+    } catch (error) {
+      console.error("Error initializing proctoring:", error);
+      res.status(500).json({ message: "Failed to initialize proctoring" });
+    }
+  });
+
+  // Record proctoring violation
+  app.post("/api/proctoring/violations", async (req, res) => {
+    try {
+      const { sessionId, type, severity, description } = req.body;
+      
+      if (!sessionId || !type || !severity) {
+        return res.status(400).json({ message: "Missing required fields" });
+      }
+
+      const shouldNullify = proctorService.recordViolation(sessionId, {
+        type,
+        severity,
+        description: description || `${type} detected during exam`
+      });
+
+      if (shouldNullify) {
+        // Delete the session from database
+        try {
+          await storage.updateTestSession(sessionId, {
+            isSubmitted: true,
+            finalScore: 0,
+            finalAnswer: "EXAM_NULLIFIED_PROCTORING_VIOLATION"
+          });
+        } catch (error) {
+          console.error("Error nullifying session:", error);
+        }
+      }
+
+      const violationSummary = proctorService.getViolationSummary(sessionId);
+      
+      res.json({ 
+        success: true, 
+        nullified: shouldNullify,
+        violations: violationSummary
+      });
+    } catch (error) {
+      console.error("Error recording violation:", error);
+      res.status(500).json({ message: "Failed to record violation" });
+    }
+  });
+
+  // Get proctoring session status
+  app.get("/api/proctoring/session/:sessionId", async (req, res) => {
+    try {
+      const sessionId = parseInt(req.params.sessionId);
+      const proctorSession = proctorService.getSessionStatus(sessionId);
+      
+      if (!proctorSession) {
+        return res.status(404).json({ message: "Proctoring session not found" });
+      }
+
+      const violationSummary = proctorService.getViolationSummary(sessionId);
+      const isValid = proctorService.isSessionValid(sessionId);
+      
+      res.json({
+        sessionId: proctorSession.sessionId,
+        isActive: proctorSession.isActive,
+        isValid,
+        cameraEnabled: proctorSession.cameraEnabled,
+        fullscreenActive: proctorSession.fullscreenActive,
+        violations: violationSummary,
+        startTime: proctorSession.startTime
+      });
+    } catch (error) {
+      console.error("Error fetching proctoring session:", error);
+      res.status(500).json({ message: "Failed to fetch proctoring session" });
+    }
+  });
+
+  // Update proctoring session status
+  app.post("/api/proctoring/session/:sessionId/status", async (req, res) => {
+    try {
+      const sessionId = parseInt(req.params.sessionId);
+      const { cameraEnabled, fullscreenActive } = req.body;
+      
+      proctorService.updateSessionStatus(sessionId, {
+        cameraEnabled,
+        fullscreenActive
+      });
+      
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error updating proctoring session:", error);
+      res.status(500).json({ message: "Failed to update proctoring session" });
     }
   });
 

@@ -122,6 +122,9 @@ This is a full-stack academic test platform application built with React and Exp
 - July 09, 2025. Enhanced test session schema with auto-save fields: currentAnswerDraft, questionStartTimes, questionTimeElapsed, lastActivityAt
 - July 09, 2025. Updated TestTimer component to use database-persisted timing instead of client-side calculations
 - July 09, 2025. Added auto-submission functionality when question time limits expire
+- July 09, 2025. Created comprehensive proctoring system with camera monitoring, fullscreen enforcement, and violation detection
+- July 09, 2025. Integrated proctoring setup into exam preparation page with ready status indicators
+- July 09, 2025. Added proctoring violation modal with detailed messaging and automatic exam nullification for critical violations
 
 ## User Preferences
 
