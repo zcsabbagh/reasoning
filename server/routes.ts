@@ -763,6 +763,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       console.log("Final session data to store:", JSON.stringify(sessionData, null, 2));
       
+      // Initialize timer for the first question
+      const now = new Date();
+      sessionData.questionStartTimes = [now.toISOString()];
+      sessionData.lastActivityAt = now;
+      
       const session = await storage.createTestSession(sessionData);
       console.log("Session created successfully:", session.id);
       console.log("=== Session creation complete ===");

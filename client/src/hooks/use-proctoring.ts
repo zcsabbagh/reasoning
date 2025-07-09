@@ -157,7 +157,7 @@ export function useProctoring({ sessionId, onViolation, onNullification }: UsePr
 
   // Setup monitoring
   useEffect(() => {
-    if (!sessionId || !state.cameraEnabled || !state.fullscreenActive) return;
+    if (!sessionId) return;
 
     // Start monitoring
     intervalRef.current = setInterval(() => {
@@ -203,7 +203,7 @@ export function useProctoring({ sessionId, onViolation, onNullification }: UsePr
       window.removeEventListener('blur', handleWindowBlur);
       window.removeEventListener('beforeunload', handleBeforeUnload);
     };
-  }, [sessionId, state.cameraEnabled, state.fullscreenActive]);
+  }, [sessionId]);
 
   // Cleanup on unmount
   useEffect(() => {
