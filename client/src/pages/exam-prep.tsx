@@ -391,8 +391,9 @@ export default function ExamPrep() {
                 <ul className="text-sm text-red-800 space-y-1">
                   <li>• Camera must remain on throughout the exam</li>
                   <li>• Must stay in fullscreen mode</li>
-                  <li>• Switching tabs or applications will be flagged</li>
-                  <li>• Violations result in immediate exam nullification</li>
+                  <li>• Switching tabs or applications will be flagged as violations</li>
+                  <li>• Changing windows or leaving the page will be detected</li>
+                  <li>• Critical violations result in immediate exam nullification</li>
                 </ul>
               </div>
             </CardContent>

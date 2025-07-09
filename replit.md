@@ -125,6 +125,7 @@ This is a full-stack academic test platform application built with React and Exp
 - July 09, 2025. Created comprehensive proctoring system with camera monitoring, fullscreen enforcement, and violation detection
 - July 09, 2025. Integrated proctoring setup into exam preparation page with ready status indicators
 - July 09, 2025. Added proctoring violation modal with detailed messaging and automatic exam nullification for critical violations
+- July 09, 2025. Enhanced proctoring system with tab switching detection, window blur monitoring, and page navigation warnings
 
 ## User Preferences
 

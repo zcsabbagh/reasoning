@@ -182,9 +182,17 @@ export function useProctoring({ sessionId, onViolation, onNullification }: UsePr
       recordViolation('window_blur', 'warning');
     };
 
+    // Prevent accidental navigation away from exam
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = 'Are you sure you want to leave the exam? This will end your session.';
+      return e.returnValue;
+    };
+
     document.addEventListener('fullscreenchange', handleFullscreenChange);
     document.addEventListener('visibilitychange', handleVisibilityChange);
     window.addEventListener('blur', handleWindowBlur);
+    window.addEventListener('beforeunload', handleBeforeUnload);
 
     return () => {
       if (intervalRef.current) {
@@ -193,6 +201,7 @@ export function useProctoring({ sessionId, onViolation, onNullification }: UsePr
       document.removeEventListener('fullscreenchange', handleFullscreenChange);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('blur', handleWindowBlur);
+      window.removeEventListener('beforeunload', handleBeforeUnload);
     };
   }, [sessionId, state.cameraEnabled, state.fullscreenActive]);
 

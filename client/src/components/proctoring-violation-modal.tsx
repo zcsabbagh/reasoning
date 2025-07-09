@@ -33,14 +33,14 @@ export default function ProctoringViolationModal({
       case 'tab_switch':
         return {
           title: 'Tab Switch Detected',
-          description: 'You have switched to another tab during the exam.',
-          consequence: 'This violation has been recorded. Additional violations may result in nullification.'
+          description: 'You have switched to another browser tab during the exam.',
+          consequence: 'This violation has been recorded. Multiple violations may result in exam nullification.'
         };
       case 'window_blur':
         return {
           title: 'Window Focus Lost',
-          description: 'You have switched to another application during the exam.',
-          consequence: 'This violation has been recorded. Additional violations may result in nullification.'
+          description: 'You have switched to another application or window during the exam.',
+          consequence: 'This violation has been recorded. Multiple violations may result in exam nullification.'
         };
       default:
         return {
