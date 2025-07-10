@@ -10,6 +10,7 @@ import { Trophy, Clock, BookOpen, User, LogOut, BarChart3, Target, ClipboardChec
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import VersionSelectionModal from "@/components/version-selection-modal";
 
 interface User {
   id: number;
@@ -42,6 +43,7 @@ export default function Account() {
   const [, setLocation] = useLocation();
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const [showVersionModal, setShowVersionModal] = useState(false);
   
   // Results modal state
   const [showResults, setShowResults] = useState(false);
@@ -143,6 +145,7 @@ export default function Account() {
       console.log('Session ID:', session.id);
       console.log('About to navigate to exam prep...');
       try {
+        setShowVersionModal(false); // Close the version selection modal
         setLocation(`/exam-prep/${session.id}`);
         console.log('Navigation successful');
       } catch (navError) {
@@ -172,19 +175,36 @@ export default function Account() {
 
   const handleStartExam = () => {
     console.log('=== START EXAM BUTTON CLICKED ===');
-    console.log('User:', user);
-    console.log('Mutation state:', {
-      isPending: createExamMutation.isPending,
-      isError: createExamMutation.isError,
-      isSuccess: createExamMutation.isSuccess,
-      error: createExamMutation.error
-    });
-    console.log('About to call mutate...');
-    try {
-      createExamMutation.mutate();
-      console.log('Mutate called successfully');
-    } catch (error) {
-      console.error('Error calling mutate:', error);
+    // Show version selection modal instead of directly creating exam
+    setShowVersionModal(true);
+  };
+
+  const handleVersionSelection = (version: string) => {
+    console.log('=== VERSION SELECTED ===', version);
+    
+    if (version === "v0") {
+      // Only V0 is currently supported
+      console.log('User:', user);
+      console.log('Mutation state:', {
+        isPending: createExamMutation.isPending,
+        isError: createExamMutation.isError,
+        isSuccess: createExamMutation.isSuccess,
+        error: createExamMutation.error
+      });
+      console.log('About to call mutate...');
+      try {
+        createExamMutation.mutate();
+        console.log('Mutate called successfully');
+      } catch (error) {
+        console.error('Error calling mutate:', error);
+      }
+    } else {
+      // V1 and V2 are not yet implemented
+      toast({
+        title: "Version Not Available",
+        description: `${version.toUpperCase()} is coming soon. Please select V0 for now.`,
+        variant: "destructive",
+      });
     }
   };
 
@@ -630,6 +650,14 @@ export default function Account() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Version Selection Modal */}
+      <VersionSelectionModal
+        isOpen={showVersionModal}
+        onClose={() => setShowVersionModal(false)}
+        onSelectVersion={handleVersionSelection}
+        isLoading={createExamMutation.isPending}
+      />
     </div>
   );
 }
