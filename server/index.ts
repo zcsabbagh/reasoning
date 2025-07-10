@@ -43,12 +43,26 @@ app.use((req, res, next) => {
     const status = err.status || err.statusCode || 500;
     const message = err.message || "Internal Server Error";
 
+    // Log detailed error information for debugging
+    console.error('=== Server Error ===');
+    console.error('Status:', status);
+    console.error('Message:', message);
+    console.error('Error type:', typeof err);
+    console.error('Stack trace:', err.stack);
+    console.error('Request URL:', _req.url);
+    console.error('Request method:', _req.method);
+    console.error('Request headers:', _req.headers);
+    console.error('Environment:', process.env.NODE_ENV);
+    console.error('Database URL exists:', !!process.env.DATABASE_URL);
+    console.error('=== End Error Details ===');
+
     // Only send response if headers haven't been sent yet
     if (!res.headersSent) {
-      res.status(status).json({ message });
+      res.status(status).json({ 
+        message,
+        error: process.env.NODE_ENV === 'development' ? err.stack : undefined
+      });
     }
-    
-    console.error('Server error:', err);
   });
 
   // importantly only setup vite in development and after

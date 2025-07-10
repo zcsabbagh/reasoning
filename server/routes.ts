@@ -28,9 +28,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
     sessionStore = new PgSession({
       pool: pool,
       tableName: 'session', // Will be created automatically
-      createTableIfMissing: true
+      createTableIfMissing: true,
+      ttl: 30 * 24 * 60 * 60, // 30 days in seconds
+      schemaName: 'public'
     });
     console.log('Session store initialized successfully');
+    
+    // Test the session store connection
+    setTimeout(async () => {
+      try {
+        await sessionStore.ready;
+        console.log('Session store connection verified');
+      } catch (storeError) {
+        console.error('Session store connection test failed:', storeError);
+        console.log('Session store may not be working correctly');
+      }
+    }, 1000);
   } catch (error) {
     console.error('Session store initialization error:', error);
     // Fallback to memory store if database fails
@@ -41,11 +54,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   const sessionConfig: any = {
     store: sessionStore,
     secret: process.env.SESSION_SECRET || 'citium-session-secret-key-fixed-for-production',
-    resave: true, // Force save to ensure session persistence
-    saveUninitialized: true, // Save empty sessions to maintain consistency
+    resave: false, // Only save session if it was modified
+    saveUninitialized: false, // Don't save empty sessions
     rolling: true, // Reset the cookie MaxAge on every response
     cookie: { 
-      secure: false, // Temporarily disable secure for debugging production issues
+      secure: process.env.NODE_ENV === 'production', // Use secure cookies in production
       maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days for persistent login
       sameSite: 'lax', // Allow cross-site cookies for OAuth
       httpOnly: true // Security: prevent XSS attacks
@@ -58,12 +71,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.use(passport.initialize());
   app.use(passport.session());
 
-  // Add middleware to ensure session persistence
+  // Add middleware to ensure session persistence and error handling
   app.use((req, res, next) => {
     // Force session save if user is authenticated
     if (req.isAuthenticated() && req.user) {
       req.session.save((err) => {
-        if (err) console.error('Session save error:', err);
+        if (err) {
+          console.error('Session save error:', err);
+          // Try to regenerate session on error
+          req.session.regenerate((regenerateErr) => {
+            if (regenerateErr) {
+              console.error('Session regeneration error:', regenerateErr);
+            }
+          });
+        }
       });
     }
     next();
@@ -456,6 +477,86 @@ export async function registerRoutes(app: Express): Promise<Server> {
       sessionID: req.sessionID,
       allSession: req.session
     });
+  });
+
+  // Comprehensive health check endpoint
+  app.get('/health', async (req, res) => {
+    const healthStatus = {
+      timestamp: new Date().toISOString(),
+      environment: process.env.NODE_ENV || 'development',
+      status: 'healthy',
+      checks: {
+        database: { status: 'unknown', message: '', responseTime: 0 },
+        storage: { status: 'unknown', message: '', responseTime: 0 },
+        session: { status: 'unknown', message: '', responseTime: 0 },
+        authentication: { status: 'unknown', message: '', responseTime: 0 }
+      }
+    };
+
+    // Database connectivity check
+    const dbStart = Date.now();
+    try {
+      const testQuestion = await storage.getRandomQuestion();
+      healthStatus.checks.database.responseTime = Date.now() - dbStart;
+      healthStatus.checks.database.status = testQuestion ? 'healthy' : 'warning';
+      healthStatus.checks.database.message = testQuestion ? 'Connection successful' : 'No questions found';
+    } catch (error) {
+      healthStatus.checks.database.responseTime = Date.now() - dbStart;
+      healthStatus.checks.database.status = 'error';
+      healthStatus.checks.database.message = error instanceof Error ? error.message : String(error);
+    }
+
+    // Storage layer check
+    const storageStart = Date.now();
+    try {
+      const storageType = storage.constructor.name;
+      healthStatus.checks.storage.responseTime = Date.now() - storageStart;
+      healthStatus.checks.storage.status = 'healthy';
+      healthStatus.checks.storage.message = `Using ${storageType}`;
+    } catch (error) {
+      healthStatus.checks.storage.responseTime = Date.now() - storageStart;
+      healthStatus.checks.storage.status = 'error';
+      healthStatus.checks.storage.message = error instanceof Error ? error.message : String(error);
+    }
+
+    // Session store check
+    const sessionStart = Date.now();
+    try {
+      const sessionId = req.sessionID;
+      healthStatus.checks.session.responseTime = Date.now() - sessionStart;
+      healthStatus.checks.session.status = sessionId ? 'healthy' : 'warning';
+      healthStatus.checks.session.message = sessionId ? 'Session active' : 'No session ID';
+    } catch (error) {
+      healthStatus.checks.session.responseTime = Date.now() - sessionStart;
+      healthStatus.checks.session.status = 'error';
+      healthStatus.checks.session.message = error instanceof Error ? error.message : String(error);
+    }
+
+    // Authentication check
+    const authStart = Date.now();
+    try {
+      const isAuthenticated = req.isAuthenticated();
+      healthStatus.checks.authentication.responseTime = Date.now() - authStart;
+      healthStatus.checks.authentication.status = 'healthy';
+      healthStatus.checks.authentication.message = isAuthenticated ? 'User authenticated' : 'No authentication required';
+    } catch (error) {
+      healthStatus.checks.authentication.responseTime = Date.now() - authStart;
+      healthStatus.checks.authentication.status = 'error';
+      healthStatus.checks.authentication.message = error instanceof Error ? error.message : String(error);
+    }
+
+    // Overall health status
+    const hasErrors = Object.values(healthStatus.checks).some(check => check.status === 'error');
+    const hasWarnings = Object.values(healthStatus.checks).some(check => check.status === 'warning');
+    
+    if (hasErrors) {
+      healthStatus.status = 'unhealthy';
+    } else if (hasWarnings) {
+      healthStatus.status = 'degraded';
+    }
+
+    const statusCode = hasErrors ? 500 : hasWarnings ? 200 : 200;
+    res.status(statusCode).json(healthStatus);
   });
 
   // Test database connectivity

@@ -197,6 +197,7 @@ export class MemStorage implements IStorage {
 // PostgreSQL Storage Implementation
 export class PostgresStorage implements IStorage {
   private db: ReturnType<typeof drizzle>;
+  private queryClient: ReturnType<typeof postgres>;
 
   constructor() {
     if (!process.env.DATABASE_URL) {
@@ -216,8 +217,27 @@ export class PostgresStorage implements IStorage {
       console.log("Database URL after encoding (password hidden):", connectionString.replace(/:([^@]+)@/, ':***@'));
     }
     
-    const queryClient = postgres(connectionString);
-    this.db = drizzle(queryClient);
+    // Create connection with improved stability settings
+    this.queryClient = postgres(connectionString, {
+      max: 20, // Increased max connections for better handling
+      idle_timeout: 30, // 30 second idle timeout
+      connect_timeout: 30, // 30 second connection timeout
+      max_lifetime: 60 * 30, // 30 minute max connection lifetime
+      onnotice: () => {}, // Suppress PostgreSQL notices
+      transform: {
+        undefined: null // Transform undefined to null for PostgreSQL compatibility
+      },
+      debug: false, // Disable debug logging in production
+      // Add retry logic for connection failures
+      retry: {
+        initialDelay: 1000,
+        multiplier: 1.5,
+        maxDelay: 10000,
+        maxAttempts: 3
+      }
+    });
+    
+    this.db = drizzle(this.queryClient);
     this.initializeSchema();
   }
 
@@ -407,6 +427,38 @@ export class PostgresStorage implements IStorage {
       console.error("Error message:", error instanceof Error ? error.message : String(error));
       console.error("Error stack:", error instanceof Error ? error.stack : 'No stack');
       console.error("Insert data:", JSON.stringify(insertSession, null, 2));
+      
+      // If database error, try to reconnect
+      if (error instanceof Error && error.message.includes('connection')) {
+        console.log("Database connection error detected, attempting to reconnect...");
+        try {
+          await this.queryClient.end();
+          // Reinitialize connection
+          this.queryClient = postgres(process.env.DATABASE_URL!, {
+            max: 20,
+            idle_timeout: 30,
+            connect_timeout: 30,
+            max_lifetime: 60 * 30,
+            onnotice: () => {},
+            transform: { undefined: null },
+            debug: false
+          });
+          this.db = drizzle(this.queryClient);
+          
+          // Retry the operation
+          const [session] = await this.db
+            .insert(testSessions)
+            .values(insertSession)
+            .returning();
+          
+          console.log("PostgresStorage.createTestSession successful after reconnection:", session);
+          return session;
+        } catch (reconnectError) {
+          console.error("Failed to reconnect and retry:", reconnectError);
+          throw error;
+        }
+      }
+      
       throw error;
     }
   }
