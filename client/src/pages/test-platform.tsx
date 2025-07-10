@@ -158,7 +158,12 @@ export default function TestPlatform() {
     try {
       const response = await apiRequest("PATCH", `/api/test-sessions/${session.id}`, updates);
       const updatedSession = await response.json();
-      setSession(updatedSession);
+      
+      // Only update local state if this is NOT a finalAnswer update
+      // to prevent circular dependencies with the AnswerSection component
+      if (!updates.finalAnswer) {
+        setSession(updatedSession);
+      }
     } catch (error) {
       console.error("Failed to update session:", error);
     }
@@ -189,8 +194,8 @@ export default function TestPlatform() {
   const handleAnswerChange = useCallback((answer: string) => {
     if (!session) return;
     
-    // Update local state immediately for smooth typing
-    setSession(prev => prev ? { ...prev, finalAnswer: answer } : null);
+    // DON'T update local session state immediately to prevent circular updates
+    // The AnswerSection component will handle its own state
     
     // Clear previous timeout
     if (debounceRef.current) {
@@ -198,9 +203,10 @@ export default function TestPlatform() {
     }
     
     // Debounce the API call to reduce server requests
+    // This will only update the database, not the local state
     debounceRef.current = setTimeout(() => {
       updateSession({ finalAnswer: answer });
-    }, 500);
+    }, 1000); // Increased debounce time to reduce conflicts
   }, [session?.id]);
 
   const handleSubmitAnswer = async (answer: string) => {

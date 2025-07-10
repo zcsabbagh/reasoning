@@ -26,6 +26,8 @@ export default function AnswerSection({
   const [isTranscribing, setIsTranscribing] = useState(false);
   const [mediaRecorder, setMediaRecorder] = useState<MediaRecorder | null>(null);
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
+  const [isUserTyping, setIsUserTyping] = useState(false);
+  const [lastTypingTime, setLastTypingTime] = useState<number>(0);
   const { toast } = useToast();
 
   // Auto-save functionality
@@ -60,12 +62,30 @@ export default function AnswerSection({
   });
 
   useEffect(() => {
-    setAnswer(initialAnswer);
+    // Only update answer from initialAnswer when the component first loads
+    // or when the sessionId changes (new question), not for auto-save updates
+    if (initialAnswer && !answer) {
+      setAnswer(initialAnswer);
+    }
+  }, [sessionId]); // Only depend on sessionId, not initialAnswer
+
+  // Separate effect for loading saved draft when component mounts
+  useEffect(() => {
+    if (initialAnswer && initialAnswer !== answer && !lastTypingTime) {
+      setAnswer(initialAnswer);
+    }
   }, [initialAnswer]);
 
   const handleAnswerChange = (value: string) => {
     setAnswer(value);
+    setIsUserTyping(true);
+    setLastTypingTime(Date.now());
     onAnswerChange(value);
+    
+    // Reset typing state after a short delay
+    setTimeout(() => {
+      setIsUserTyping(false);
+    }, 1000);
   };
 
   const getWordCount = (text: string) => {

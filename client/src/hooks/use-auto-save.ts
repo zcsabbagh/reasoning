@@ -13,12 +13,13 @@ export function useAutoSave({
   sessionId, 
   text, 
   enabled = true, 
-  interval = 5000, // 5 seconds
+  interval = 8000, // Increased to 8 seconds for less aggressive saving
   onSave 
 }: UseAutoSaveProps) {
   const lastSavedText = useRef(text);
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const isSaving = useRef(false);
+  const lastTextChange = useRef(Date.now());
 
   useEffect(() => {
     if (!enabled || isSaving.current) return;
@@ -28,9 +29,17 @@ export function useAutoSave({
       clearTimeout(saveTimeoutRef.current);
     }
 
-    // Only auto-save if text has changed
-    if (text !== lastSavedText.current && text.trim() !== '') {
+    // Only auto-save if text has changed and there's meaningful content
+    if (text !== lastSavedText.current && text.trim() !== '' && text.length > 5) {
+      lastTextChange.current = Date.now();
+      
       saveTimeoutRef.current = setTimeout(async () => {
+        // Double-check the text hasn't changed recently (debouncing)
+        const timeSinceLastChange = Date.now() - lastTextChange.current;
+        if (timeSinceLastChange < interval - 1000) {
+          return; // Skip save if text changed too recently
+        }
+        
         try {
           isSaving.current = true;
           
