@@ -60,18 +60,21 @@ export default function ExamV1() {
   // Fetch exam session
   const { data: session, isLoading: sessionLoading } = useQuery<ExamSession>({
     queryKey: ['/api/v1/sessions', sessionId],
+    queryFn: () => fetch(`/api/v1/sessions/${sessionId}`).then(res => res.json()),
     enabled: sessionId > 0,
   });
 
   // Fetch current stage data
   const { data: stageData, isLoading: stageLoading } = useQuery<StageData>({
     queryKey: ['/api/v1/stages', sessionId, session?.currentStage],
+    queryFn: () => fetch(`/api/v1/stages/${sessionId}/${session?.currentStage}`).then(res => res.json()),
     enabled: !!session && session.currentStage > 0,
   });
 
   // Fetch dialogue messages
   const { data: messages, isLoading: messagesLoading } = useQuery<DialogueMessage[]>({
     queryKey: ['/api/v1/messages', sessionId],
+    queryFn: () => fetch(`/api/v1/messages/${sessionId}`).then(res => res.json()),
     enabled: sessionId > 0,
     refetchInterval: 2000, // Refresh every 2 seconds for real-time updates
   });
