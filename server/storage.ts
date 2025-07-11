@@ -916,12 +916,12 @@ export class PostgresStorage implements IStorage {
   }
 
   async getAiResponsesBySession(sessionId: number): Promise<AiResponse[]> {
-    const aiResponses = await this.db
+    const sessionAiResponses = await this.db
       .select()
       .from(aiResponses)
       .where(eq(aiResponses.sessionId, sessionId))
       .orderBy(aiResponses.timestamp);
-    return aiResponses;
+    return sessionAiResponses;
   }
 }
 

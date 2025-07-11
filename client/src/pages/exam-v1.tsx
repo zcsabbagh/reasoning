@@ -6,9 +6,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Mic, MicOff, Send, Loader2, MessageSquare, Clock, Target } from "lucide-react";
+import { Send, Loader2, MessageSquare, Clock, Target } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { MicrophoneInput } from "@/components/microphone-input";
 
 interface ExamSession {
   id: number;
@@ -50,7 +51,6 @@ export default function ExamV1() {
   const { toast } = useToast();
   
   const [currentInput, setCurrentInput] = useState("");
-  const [isRecording, setIsRecording] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [dialogueMessages, setDialogueMessages] = useState<DialogueMessage[]>([]);
   const [wordCount, setWordCount] = useState(0);
@@ -142,74 +142,10 @@ export default function ExamV1() {
     });
   };
 
-  // Voice recording functionality (reusing existing components)
-  const startRecording = async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const mediaRecorder = new MediaRecorder(stream);
-      const chunks: Blob[] = [];
-
-      mediaRecorder.ondataavailable = (e) => chunks.push(e.data);
-      mediaRecorder.onstop = async () => {
-        const audioBlob = new Blob(chunks, { type: 'audio/wav' });
-        await transcribeAudio(audioBlob);
-        stream.getTracks().forEach(track => track.stop());
-      };
-
-      mediaRecorder.start();
-      setIsRecording(true);
-
-      // Stop recording after 30 seconds max
-      setTimeout(() => {
-        if (mediaRecorder.state === 'recording') {
-          mediaRecorder.stop();
-          setIsRecording(false);
-        }
-      }, 30000);
-
-    } catch (error) {
-      console.error('Error starting recording:', error);
-      toast({
-        title: "Recording failed",
-        description: "Could not access microphone. Please check permissions.",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const stopRecording = () => {
-    setIsRecording(false);
-    // Recording will be stopped by the mediaRecorder.stop() call
-  };
-
-  const transcribeAudio = async (audioBlob: Blob) => {
-    try {
-      const formData = new FormData();
-      formData.append('audio', audioBlob, 'recording.wav');
-
-      const response = await fetch('/api/transcribe', {
-        method: 'POST',
-        body: formData,
-      });
-
-      if (!response.ok) {
-        throw new Error('Transcription failed');
-      }
-
-      const data = await response.json();
-      
-      if (data.transcription) {
-        setCurrentInput(prev => prev + (prev ? ' ' : '') + data.transcription);
-        textareaRef.current?.focus();
-      }
-    } catch (error) {
-      console.error('Error transcribing audio:', error);
-      toast({
-        title: "Transcription failed",
-        description: "Could not transcribe audio. Please try again.",
-        variant: "destructive",
-      });
-    }
+  // Handle microphone transcription
+  const handleTranscription = (text: string) => {
+    setCurrentInput(prev => prev + (prev ? ' ' : '') + text);
+    textareaRef.current?.focus();
   };
 
   const getStageTypeDisplay = (stageType: string) => {
@@ -387,20 +323,11 @@ export default function ExamV1() {
             />
             
             {/* Microphone Button */}
-            <Button
-              type="button"
-              size="sm"
-              variant={isRecording ? "destructive" : "outline"}
-              className="absolute bottom-2 right-2 w-8 h-8 rounded-full p-0"
-              onClick={isRecording ? stopRecording : startRecording}
+            <MicrophoneInput
+              onTranscription={handleTranscription}
               disabled={isSubmitting}
-            >
-              {isRecording ? (
-                <MicOff className="w-4 h-4" />
-              ) : (
-                <Mic className="w-4 h-4" />
-              )}
-            </Button>
+              className="absolute bottom-2 right-2"
+            />
           </div>
 
           {/* Controls and Stats */}

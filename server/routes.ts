@@ -1331,6 +1331,59 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Version 1 Exam API Routes
   
+  // Manual seed endpoint for V1 exam data
+  app.post("/api/v1/seed-exam", async (req, res) => {
+    try {
+      // Check if exam already exists
+      const existingExams = await storage.getAllExams();
+      if (existingExams.length > 0) {
+        return res.json({ message: 'Exam already exists', examId: existingExams[0].id });
+      }
+      
+      // Create sample exam
+      const exam = await storage.createExam({
+        title: 'Historical Counterfactual Analysis',
+        description: 'Analyze alternative historical scenarios and their potential impacts',
+        totalStages: 3
+      });
+      
+      console.log('Created exam:', exam);
+      
+      // Create exam questions
+      const questions = [
+        {
+          examId: exam.id,
+          stageNumber: 1,
+          promptText: 'Consider the scenario: The printing press was never invented. What assumptions would you make about how this might have affected European society by 1600? Please list 3 key assumptions and explain your reasoning.',
+          stageType: 'assumption'
+        },
+        {
+          examId: exam.id,
+          stageNumber: 2,
+          promptText: 'Based on your assumptions, what strategic question would you ask to better understand the implications of this scenario?',
+          stageType: 'questioning'
+        },
+        {
+          examId: exam.id,
+          stageNumber: 3,
+          promptText: 'Now synthesize your assumptions and question into a comprehensive analysis of how European society might have developed differently without the printing press.',
+          stageType: 'synthesis'
+        }
+      ];
+      
+      for (const questionData of questions) {
+        console.log('Creating exam question:', questionData);
+        const createdQuestion = await storage.createExamQuestion(questionData);
+        console.log('Created question:', createdQuestion);
+      }
+      
+      res.json({ message: 'V1 exam seeded successfully', examId: exam.id });
+    } catch (error) {
+      console.error('Error seeding V1 exam:', error);
+      res.status(500).json({ message: 'Failed to seed V1 exam', error: error.message });
+    }
+  });
+  
   // Start a new V1 exam session
   app.post("/api/v1/sessions/start", async (req, res) => {
     try {
