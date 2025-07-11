@@ -1336,35 +1336,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       // Check if exam already exists
       const existingExams = await storage.getAllExams();
+      let examId;
+      
       if (existingExams.length > 0) {
-        return res.json({ message: 'Exam already exists', examId: existingExams[0].id });
+        examId = existingExams[0].id;
+        console.log('Using existing exam with ID:', examId);
+        
+        // Check if exam questions already exist
+        const existingQuestions = await storage.getExamQuestionsByExam(examId);
+        if (existingQuestions.length > 0) {
+          console.log('Exam questions already exist, count:', existingQuestions.length);
+          return res.json({ message: 'Exam already exists with questions', examId: examId, questionCount: existingQuestions.length });
+        }
+      } else {
+        // Create sample exam
+        const exam = await storage.createExam({
+          title: 'Historical Counterfactual Analysis',
+          description: 'Analyze alternative historical scenarios and their potential impacts',
+          totalStages: 3
+        });
+        
+        console.log('Created exam:', exam);
+        examId = exam.id;
       }
       
-      // Create sample exam
-      const exam = await storage.createExam({
-        title: 'Historical Counterfactual Analysis',
-        description: 'Analyze alternative historical scenarios and their potential impacts',
-        totalStages: 3
-      });
-      
-      console.log('Created exam:', exam);
-      
-      // Create exam questions
+      // Create exam questions for the exam
       const questions = [
         {
-          examId: exam.id,
+          examId: examId,
           stageNumber: 1,
           promptText: 'Consider the scenario: The printing press was never invented. What assumptions would you make about how this might have affected European society by 1600? Please list 3 key assumptions and explain your reasoning.',
           stageType: 'assumption'
         },
         {
-          examId: exam.id,
+          examId: examId,
           stageNumber: 2,
           promptText: 'Based on your assumptions, what strategic question would you ask to better understand the implications of this scenario?',
           stageType: 'questioning'
         },
         {
-          examId: exam.id,
+          examId: examId,
           stageNumber: 3,
           promptText: 'Now synthesize your assumptions and question into a comprehensive analysis of how European society might have developed differently without the printing press.',
           stageType: 'synthesis'
@@ -1377,7 +1388,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.log('Created question:', createdQuestion);
       }
       
-      res.json({ message: 'V1 exam seeded successfully', examId: exam.id });
+      res.json({ message: 'V1 exam seeded successfully', examId: examId });
     } catch (error) {
       console.error('Error seeding V1 exam:', error);
       res.status(500).json({ message: 'Failed to seed V1 exam', error: error.message });
