@@ -179,7 +179,7 @@ export default function Account() {
     setShowVersionModal(true);
   };
 
-  const handleVersionSelection = (version: string) => {
+  const handleVersionSelection = async (version: string) => {
     console.log('=== VERSION SELECTED ===', version);
     
     if (version === "v0") {
@@ -202,7 +202,30 @@ export default function Account() {
       // V1 - Enhanced exam system
       console.log('Starting V1 exam session...');
       setShowVersionModal(false);
-      setLocation('/exam-v1');
+      
+      // Start a V1 exam session
+      try {
+        const response = await apiRequest("POST", "/api/v1/sessions/start", {});
+        if (response.ok) {
+          const session = await response.json();
+          console.log('V1 session created:', session);
+          setLocation(`/exam-v1/${session.id}`);
+        } else {
+          console.error('Failed to start V1 session:', response.status);
+          toast({
+            title: "Error",
+            description: "Failed to start V1 exam session. Please try again.",
+            variant: "destructive",
+          });
+        }
+      } catch (error) {
+        console.error('Error starting V1 session:', error);
+        toast({
+          title: "Error",
+          description: "Failed to start V1 exam session. Please try again.",
+          variant: "destructive",
+        });
+      }
     } else {
       // V2 is not yet implemented
       toast({
