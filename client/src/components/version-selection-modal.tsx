@@ -48,10 +48,10 @@ export default function VersionSelectionModal({
         "Multi-modal input support",
         "Collaborative problem solving"
       ],
-      status: "coming-soon",
+      status: "available",
       icon: <Brain className="w-6 h-6" />,
       color: "bg-purple-600 hover:bg-purple-700",
-      badgeColor: "bg-yellow-100 text-yellow-800"
+      badgeColor: "bg-green-100 text-green-800"
     },
     {
       id: "v2",
@@ -72,7 +72,7 @@ export default function VersionSelectionModal({
   ];
 
   const handleSelectVersion = (versionId: string) => {
-    if (versionId === "v0") {
+    if (versionId === "v0" || versionId === "v1") {
       setSelectedVersion(versionId);
       onSelectVersion(versionId);
     }
