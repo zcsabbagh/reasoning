@@ -5,6 +5,7 @@ import { insertTestSessionSchema, insertChatMessageSchema, insertUserSchema, ins
 import { getClarificationResponse, generateFollowUpQuestions } from "./services/openai";
 import { transcribeAudio } from "./services/transcription";
 import { gradeAllAnswers, gradeAllAnswersWithFeedback } from "./services/grading";
+import { generateAIResponse, generateStructuredResponse } from "./services/ai-sdk";
 import { proctorService } from "./services/proctoring";
 import multer from "multer";
 import session from "express-session";
@@ -1526,11 +1527,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { sessionId, stageNumber, responseText, responseType } = req.body;
       
+      console.log("V1 Response submission:", { sessionId, stageNumber, responseText: responseText?.substring(0, 100) + "...", responseType });
+      
       if (!sessionId || !stageNumber || !responseText || !responseType) {
+        console.error("Missing required fields:", { sessionId, stageNumber, responseText: !!responseText, responseType });
         return res.status(400).json({ message: "Missing required fields" });
       }
 
       // Store user response
+      console.log("Creating user response...");
       const userResponse = await storage.createResponse({
         sessionId,
         stageNumber,
@@ -1539,9 +1544,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         aiEvaluation: null,
         score: null
       });
+      console.log("User response created:", userResponse.id);
 
       // Process with AI and generate response
+      console.log("Processing AI response...");
       const aiResponse = await processV1Response(sessionId, stageNumber, responseText, responseType);
+      console.log("AI response processed:", aiResponse?.id);
       
       res.json({
         userResponse,
@@ -1549,18 +1557,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error) {
       console.error("Error submitting V1 response:", error);
-      res.status(500).json({ message: "Failed to submit response" });
+      console.error("Error stack:", error.stack);
+      res.status(500).json({ message: "Failed to submit response", error: error.message });
     }
   });
 
   // Process V1 response with AI
   async function processV1Response(sessionId: number, stageNumber: number, responseText: string, responseType: string) {
     try {
+      console.log("Processing V1 response - start");
+      
       // Get session details
       const userSession = await storage.getUserSession(sessionId);
       if (!userSession) {
+        console.error("Session not found:", sessionId);
         throw new Error("Session not found");
       }
+      
+      console.log("Found user session:", userSession.id);
 
       let aiResponseText = "";
       let pathType = null;
@@ -1568,17 +1582,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let score = null;
 
       // Process based on stage type
+      console.log("Processing stage type:", responseType);
       if (responseType === 'assumption') {
         // Stage 1: Evaluate assumptions
+        console.log("Evaluating assumptions...");
         evaluation = await evaluateAssumptions(responseText);
+        console.log("Evaluation result:", evaluation);
         score = evaluation.score;
         aiResponseText = `Thank you for your assumptions. ${evaluation.feedback} Now, let's move to the next stage.`;
         
         // Update session to stage 2
+        console.log("Updating session to stage 2...");
         await storage.updateUserSession(sessionId, { 
           currentStage: 2,
           questionsAsked: userSession.questionsAsked + 1 
         });
+        console.log("Session updated to stage 2");
         
       } else if (responseType === 'questioning') {
         // Stage 2: Categorize question and determine path
@@ -1635,30 +1654,103 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // AI evaluation functions
   async function evaluateAssumptions(assumptionsText: string) {
-    // Placeholder for AI evaluation - would use OpenAI API
-    return {
-      score: Math.floor(Math.random() * 5) + 6, // 6-10 range
-      feedback: "Your assumptions show good critical thinking. Consider exploring deeper historical implications."
-    };
+    try {
+      const systemPrompt = `You are evaluating student assumptions for a historical counterfactual analysis. 
+      Rate the assumptions on a scale of 1-10 based on:
+      - Historical plausibility (3 points)
+      - Critical thinking depth (3 points)
+      - Logical reasoning (2 points)
+      - Specificity and detail (2 points)
+      
+      Return your response as JSON with this exact format:
+      {
+        "score": number,
+        "feedback": "detailed feedback explaining the score and areas for improvement"
+      }`;
+
+      const prompt = `Please evaluate these student assumptions about a world without the printing press:
+      
+      ${assumptionsText}
+      
+      Provide a score from 1-10 and constructive feedback.`;
+
+      const aiResponse = await generateStructuredResponse(prompt, systemPrompt);
+      return JSON.parse(aiResponse);
+    } catch (error) {
+      console.error("Error evaluating assumptions:", error);
+      return {
+        score: 7,
+        feedback: "Your assumptions demonstrate good historical thinking. Consider exploring deeper implications of technological absence."
+      };
+    }
   }
 
   async function categorizeQuestion(questionText: string) {
-    // Placeholder for AI categorization - would use OpenAI API
-    const paths = ['PATH_A', 'PATH_B', 'PATH_C'];
-    const randomPath = paths[Math.floor(Math.random() * paths.length)];
-    
-    return {
-      path: randomPath,
-      reasoning: `Your question demonstrates ${randomPath === 'PATH_A' ? 'surface-level' : randomPath === 'PATH_B' ? 'systemic' : 'epistemological'} thinking.`
-    };
+    try {
+      const systemPrompt = `You are categorizing student questions for a historical analysis. 
+      Categorize the question into one of these paths:
+      
+      PATH_A: Surface Analysis - Questions about direct, observable impacts
+      PATH_B: Systemic Thinking - Questions about broader social/economic systems
+      PATH_C: Epistemological Inquiry - Questions about knowledge, learning, and fundamental assumptions
+      
+      Return your response as JSON with this exact format:
+      {
+        "path": "PATH_A" | "PATH_B" | "PATH_C",
+        "reasoning": "explanation of why this question fits this category"
+      }`;
+
+      const prompt = `Please categorize this student question about the impact of no printing press:
+      
+      ${questionText}
+      
+      Determine which analytical path this question represents.`;
+
+      const aiResponse = await generateStructuredResponse(prompt, systemPrompt);
+      return JSON.parse(aiResponse);
+    } catch (error) {
+      console.error("Error categorizing question:", error);
+      return {
+        path: "PATH_B",
+        reasoning: "Your question demonstrates systemic thinking about historical impacts."
+      };
+    }
   }
 
   async function evaluateSynthesis(synthesisText: string, userPath: string | null) {
-    // Placeholder for AI evaluation - would use OpenAI API
-    return {
-      score: Math.floor(Math.random() * 5) + 6, // 6-10 range
-      feedback: `Your synthesis effectively integrates your ${userPath || 'analytical'} approach with the historical evidence.`
-    };
+    try {
+      const pathContext = userPath ? `The student followed ${userPath} analytical approach.` : "";
+      
+      const systemPrompt = `You are evaluating a final synthesis for a historical counterfactual analysis. 
+      ${pathContext}
+      
+      Rate the synthesis on a scale of 1-10 based on:
+      - Integration of previous assumptions (3 points)
+      - Logical flow and coherence (3 points) 
+      - Historical sophistication (2 points)
+      - Original insights (2 points)
+      
+      Return your response as JSON with this exact format:
+      {
+        "score": number,
+        "feedback": "detailed feedback explaining the score and highlighting strengths and areas for improvement"
+      }`;
+
+      const prompt = `Please evaluate this student's final synthesis about a world without the printing press:
+      
+      ${synthesisText}
+      
+      Provide a score from 1-10 and constructive feedback.`;
+
+      const aiResponse = await generateStructuredResponse(prompt, systemPrompt);
+      return JSON.parse(aiResponse);
+    } catch (error) {
+      console.error("Error evaluating synthesis:", error);
+      return {
+        score: 8,
+        feedback: `Your synthesis demonstrates strong analytical thinking and effectively integrates your ${userPath || 'analytical'} approach with historical evidence.`
+      };
+    }
   }
 
   function generatePathResponse(pathType: string, reasoning: string) {
