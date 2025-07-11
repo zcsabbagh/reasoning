@@ -1455,6 +1455,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const stageData = await storage.getExamQuestionByStage(userSession.examId, stageNumber);
       if (!stageData) {
+        console.log(`Stage not found - examId: ${userSession.examId}, stageNumber: ${stageNumber}`);
+        // Check if any exam questions exist for this exam
+        const allQuestions = await storage.getExamQuestionsByExam(userSession.examId);
+        console.log(`Found ${allQuestions.length} questions for exam ${userSession.examId}:`, allQuestions);
         return res.status(404).json({ message: "Stage not found" });
       }
 
