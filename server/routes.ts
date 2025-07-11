@@ -1674,8 +1674,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       Provide a score from 1-10 and constructive feedback.`;
 
-      const aiResponse = await generateStructuredResponse(prompt, systemPrompt);
-      return JSON.parse(aiResponse);
+      const aiResponse = await generateStructuredResponse(prompt, systemPrompt, {});
+      return aiResponse;
     } catch (error) {
       console.error("Error evaluating assumptions:", error);
       return {
@@ -1706,8 +1706,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       Determine which analytical path this question represents.`;
 
-      const aiResponse = await generateStructuredResponse(prompt, systemPrompt);
-      return JSON.parse(aiResponse);
+      const aiResponse = await generateStructuredResponse(prompt, systemPrompt, {});
+      return aiResponse;
     } catch (error) {
       console.error("Error categorizing question:", error);
       return {
@@ -1742,8 +1742,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       Provide a score from 1-10 and constructive feedback.`;
 
-      const aiResponse = await generateStructuredResponse(prompt, systemPrompt);
-      return JSON.parse(aiResponse);
+      const aiResponse = await generateStructuredResponse(prompt, systemPrompt, {});
+      return aiResponse;
     } catch (error) {
       console.error("Error evaluating synthesis:", error);
       return {

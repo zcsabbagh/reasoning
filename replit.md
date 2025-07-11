@@ -129,6 +129,7 @@ This is a full-stack academic test platform application built with React and Exp
 - July 10, 2025. Fixed critical text deletion bug in answer input field caused by circular auto-save updates
 - July 10, 2025. Implemented version selection modal (V0, V1, V2) with V0 as the only currently available option
 - July 10, 2025. Added comprehensive version selection UI with feature descriptions and coming soon badges
+- July 11, 2025. Fixed V1 exam submission system with proper AI SDK integration - removed double JSON parsing issues and implemented real AI evaluation for assumptions, question categorization, and synthesis scoring
 
 ## User Preferences
 
