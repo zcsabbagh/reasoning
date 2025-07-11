@@ -183,7 +183,7 @@ export default function Account() {
     console.log('=== VERSION SELECTED ===', version);
     
     if (version === "v0") {
-      // Only V0 is currently supported
+      // V0 - Current exam system
       console.log('User:', user);
       console.log('Mutation state:', {
         isPending: createExamMutation.isPending,
@@ -198,11 +198,16 @@ export default function Account() {
       } catch (error) {
         console.error('Error calling mutate:', error);
       }
+    } else if (version === "v1") {
+      // V1 - Enhanced exam system
+      console.log('Starting V1 exam session...');
+      setShowVersionModal(false);
+      setLocation('/exam-v1');
     } else {
-      // V1 and V2 are not yet implemented
+      // V2 is not yet implemented
       toast({
         title: "Version Not Available",
-        description: `${version.toUpperCase()} is coming soon. Please select V0 for now.`,
+        description: `${version.toUpperCase()} is coming soon. Please select V0 or V1 for now.`,
         variant: "destructive",
       });
     }

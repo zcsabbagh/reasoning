@@ -105,7 +105,7 @@ export default function VersionSelectionModal({
         <DialogHeader>
           <DialogTitle className="text-2xl font-bold">Select Exam Version</DialogTitle>
           <DialogDescription>
-            Choose the exam version that best fits your needs. Currently, only V0 is available.
+            Choose the exam version that best fits your needs. V0 and V1 are now available.
           </DialogDescription>
         </DialogHeader>
         
