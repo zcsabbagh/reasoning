@@ -3,6 +3,11 @@ import {
   chatMessages, 
   users,
   questions,
+  exams,
+  examQuestions,
+  userSessions,
+  responses,
+  aiResponses,
   type TestSession, 
   type ChatMessage, 
   type InsertTestSession, 
@@ -10,7 +15,17 @@ import {
   type User,
   type InsertUser,
   type Question,
-  type InsertQuestion
+  type InsertQuestion,
+  type Exam,
+  type InsertExam,
+  type ExamQuestion,
+  type InsertExamQuestion,
+  type UserSession,
+  type InsertUserSession,
+  type Response,
+  type InsertResponse,
+  type AiResponse,
+  type InsertAiResponse
 } from "@shared/schema";
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
@@ -38,6 +53,30 @@ export interface IStorage {
   createQuestion(question: InsertQuestion): Promise<Question>;
   getRandomQuestion(): Promise<Question | undefined>;
   getAllQuestions(): Promise<Question[]>;
+  
+  // Version 1 Exams
+  createExam(exam: InsertExam): Promise<Exam>;
+  getExam(id: number): Promise<Exam | undefined>;
+  getAllExams(): Promise<Exam[]>;
+  
+  // Version 1 Exam Questions
+  createExamQuestion(examQuestion: InsertExamQuestion): Promise<ExamQuestion>;
+  getExamQuestionsByExam(examId: number): Promise<ExamQuestion[]>;
+  getExamQuestionByStage(examId: number, stageNumber: number): Promise<ExamQuestion | undefined>;
+  
+  // Version 1 User Sessions
+  createUserSession(userSession: InsertUserSession): Promise<UserSession>;
+  getUserSession(id: number): Promise<UserSession | undefined>;
+  updateUserSession(id: number, updates: Partial<UserSession>): Promise<UserSession | undefined>;
+  getUserSessionsByUser(userId: number): Promise<UserSession[]>;
+  
+  // Version 1 Responses
+  createResponse(response: InsertResponse): Promise<Response>;
+  getResponsesBySession(sessionId: number): Promise<Response[]>;
+  
+  // Version 1 AI Responses
+  createAiResponse(aiResponse: InsertAiResponse): Promise<AiResponse>;
+  getAiResponsesBySession(sessionId: number): Promise<AiResponse[]>;
 }
 
 export class MemStorage implements IStorage {
@@ -191,6 +230,63 @@ export class MemStorage implements IStorage {
 
   async getAllQuestions(): Promise<Question[]> {
     return Array.from(this.questions.values()).filter(q => q.isActive);
+  }
+
+  // V1 Exam methods for MemStorage (stubs)
+  async createExam(insertExam: InsertExam): Promise<Exam> {
+    throw new Error("V1 exams not supported in memory storage");
+  }
+
+  async getExam(id: number): Promise<Exam | undefined> {
+    throw new Error("V1 exams not supported in memory storage");
+  }
+
+  async getAllExams(): Promise<Exam[]> {
+    throw new Error("V1 exams not supported in memory storage");
+  }
+
+  async createExamQuestion(insertExamQuestion: InsertExamQuestion): Promise<ExamQuestion> {
+    throw new Error("V1 exams not supported in memory storage");
+  }
+
+  async getExamQuestionsByExam(examId: number): Promise<ExamQuestion[]> {
+    throw new Error("V1 exams not supported in memory storage");
+  }
+
+  async getExamQuestionByStage(examId: number, stageNumber: number): Promise<ExamQuestion | undefined> {
+    throw new Error("V1 exams not supported in memory storage");
+  }
+
+  async createUserSession(insertUserSession: InsertUserSession): Promise<UserSession> {
+    throw new Error("V1 exams not supported in memory storage");
+  }
+
+  async getUserSession(id: number): Promise<UserSession | undefined> {
+    throw new Error("V1 exams not supported in memory storage");
+  }
+
+  async updateUserSession(id: number, updates: Partial<UserSession>): Promise<UserSession | undefined> {
+    throw new Error("V1 exams not supported in memory storage");
+  }
+
+  async getUserSessionsByUser(userId: number): Promise<UserSession[]> {
+    throw new Error("V1 exams not supported in memory storage");
+  }
+
+  async createResponse(insertResponse: InsertResponse): Promise<Response> {
+    throw new Error("V1 exams not supported in memory storage");
+  }
+
+  async getResponsesBySession(sessionId: number): Promise<Response[]> {
+    throw new Error("V1 exams not supported in memory storage");
+  }
+
+  async createAiResponse(insertAiResponse: InsertAiResponse): Promise<AiResponse> {
+    throw new Error("V1 exams not supported in memory storage");
+  }
+
+  async getAiResponsesBySession(sessionId: number): Promise<AiResponse[]> {
+    throw new Error("V1 exams not supported in memory storage");
   }
 }
 
@@ -350,12 +446,139 @@ export class PostgresStorage implements IStorage {
         }
       }
       
+      // Create Version 1 Exam tables
+      await this.createV1ExamTables();
+      
       // Seed questions if database is empty
       await this.seedQuestions();
       
       console.log("Database schema initialized successfully");
     } catch (error) {
       console.error("Error initializing database schema:", error);
+    }
+  }
+
+  private async createV1ExamTables() {
+    try {
+      console.log("Creating Version 1 Exam tables...");
+      
+      // Create exams table
+      await this.db.execute(sql`
+        CREATE TABLE IF NOT EXISTS "exams" (
+          "id" serial PRIMARY KEY NOT NULL,
+          "title" text NOT NULL,
+          "description" text NOT NULL,
+          "total_stages" integer NOT NULL DEFAULT 3,
+          "created_at" timestamp DEFAULT now() NOT NULL
+        )
+      `);
+      
+      // Create exam_questions table
+      await this.db.execute(sql`
+        CREATE TABLE IF NOT EXISTS "exam_questions" (
+          "id" serial PRIMARY KEY NOT NULL,
+          "exam_id" integer NOT NULL,
+          "stage_number" integer NOT NULL,
+          "prompt_text" text NOT NULL,
+          "stage_type" text NOT NULL,
+          "created_at" timestamp DEFAULT now() NOT NULL,
+          FOREIGN KEY ("exam_id") REFERENCES "exams"("id") ON DELETE CASCADE
+        )
+      `);
+      
+      // Create user_sessions table
+      await this.db.execute(sql`
+        CREATE TABLE IF NOT EXISTS "user_sessions" (
+          "id" serial PRIMARY KEY NOT NULL,
+          "user_id" integer NOT NULL,
+          "exam_id" integer NOT NULL,
+          "current_stage" integer NOT NULL DEFAULT 1,
+          "questions_asked" integer NOT NULL DEFAULT 0,
+          "user_path" text,
+          "started_at" timestamp DEFAULT now() NOT NULL,
+          "completed_at" timestamp,
+          FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE CASCADE,
+          FOREIGN KEY ("exam_id") REFERENCES "exams"("id") ON DELETE CASCADE
+        )
+      `);
+      
+      // Create responses table
+      await this.db.execute(sql`
+        CREATE TABLE IF NOT EXISTS "responses" (
+          "id" serial PRIMARY KEY NOT NULL,
+          "session_id" integer NOT NULL,
+          "stage_number" integer NOT NULL,
+          "response_text" text NOT NULL,
+          "response_type" text NOT NULL,
+          "timestamp" timestamp DEFAULT now() NOT NULL,
+          "ai_evaluation" text,
+          "score" integer,
+          FOREIGN KEY ("session_id") REFERENCES "user_sessions"("id") ON DELETE CASCADE
+        )
+      `);
+      
+      // Create ai_responses table
+      await this.db.execute(sql`
+        CREATE TABLE IF NOT EXISTS "ai_responses" (
+          "id" serial PRIMARY KEY NOT NULL,
+          "session_id" integer NOT NULL,
+          "stage_number" integer NOT NULL,
+          "response_text" text NOT NULL,
+          "path_type" text,
+          "timestamp" timestamp DEFAULT now() NOT NULL,
+          FOREIGN KEY ("session_id") REFERENCES "user_sessions"("id") ON DELETE CASCADE
+        )
+      `);
+      
+      // Seed a sample exam
+      await this.seedSampleExam();
+      
+      console.log("Version 1 Exam tables created successfully");
+    } catch (error) {
+      console.error("Error creating Version 1 Exam tables:", error);
+    }
+  }
+  
+  private async seedSampleExam() {
+    try {
+      // Check if exam already exists
+      const existingExam = await this.db.execute(sql`
+        SELECT COUNT(*) as count FROM exams
+      `);
+      
+      const examCount = existingExam.rows?.[0]?.count || 0;
+      
+      if (examCount > 0) {
+        console.log("Sample exam already exists, skipping...");
+        return;
+      }
+      
+      // Create sample exam
+      const examResult = await this.db.execute(sql`
+        INSERT INTO exams (title, description, total_stages)
+        VALUES ('Historical Counterfactual Analysis', 'Analyze alternative historical scenarios and their potential impacts', 3)
+        RETURNING id
+      `);
+      
+      const examId = examResult.rows?.[0]?.id;
+      
+      if (!examId) {
+        console.error("Failed to create sample exam");
+        return;
+      }
+      
+      // Create exam questions
+      await this.db.execute(sql`
+        INSERT INTO exam_questions (exam_id, stage_number, prompt_text, stage_type)
+        VALUES 
+          (${examId}, 1, 'Consider the scenario: The printing press was never invented. What assumptions would you make about how this might have affected European society by 1600? Please list 3 key assumptions and explain your reasoning.', 'assumption'),
+          (${examId}, 2, 'Based on your assumptions, what strategic question would you ask to better understand the implications of this scenario?', 'questioning'),
+          (${examId}, 3, 'Synthesize your understanding: How would the absence of the printing press have fundamentally altered the course of European history?', 'synthesis')
+      `);
+      
+      console.log("Sample exam seeded successfully");
+    } catch (error) {
+      console.error("Error seeding sample exam:", error);
     }
   }
 
@@ -577,6 +800,128 @@ export class PostgresStorage implements IStorage {
       .where(eq(questions.isActive, true))
       .orderBy(questions.createdAt);
     return allQuestions;
+  }
+
+  // Version 1 Exam methods for PostgresStorage
+  async createExam(insertExam: InsertExam): Promise<Exam> {
+    const [exam] = await this.db
+      .insert(exams)
+      .values(insertExam)
+      .returning();
+    return exam;
+  }
+
+  async getExam(id: number): Promise<Exam | undefined> {
+    const [exam] = await this.db
+      .select()
+      .from(exams)
+      .where(eq(exams.id, id))
+      .limit(1);
+    return exam;
+  }
+
+  async getAllExams(): Promise<Exam[]> {
+    const allExams = await this.db
+      .select()
+      .from(exams)
+      .orderBy(exams.createdAt);
+    return allExams;
+  }
+
+  async createExamQuestion(insertExamQuestion: InsertExamQuestion): Promise<ExamQuestion> {
+    const [examQuestion] = await this.db
+      .insert(examQuestions)
+      .values(insertExamQuestion)
+      .returning();
+    return examQuestion;
+  }
+
+  async getExamQuestionsByExam(examId: number): Promise<ExamQuestion[]> {
+    const questions = await this.db
+      .select()
+      .from(examQuestions)
+      .where(eq(examQuestions.examId, examId))
+      .orderBy(examQuestions.stageNumber);
+    return questions;
+  }
+
+  async getExamQuestionByStage(examId: number, stageNumber: number): Promise<ExamQuestion | undefined> {
+    const [question] = await this.db
+      .select()
+      .from(examQuestions)
+      .where(eq(examQuestions.examId, examId))
+      .where(eq(examQuestions.stageNumber, stageNumber))
+      .limit(1);
+    return question;
+  }
+
+  async createUserSession(insertUserSession: InsertUserSession): Promise<UserSession> {
+    const [userSession] = await this.db
+      .insert(userSessions)
+      .values(insertUserSession)
+      .returning();
+    return userSession;
+  }
+
+  async getUserSession(id: number): Promise<UserSession | undefined> {
+    const [userSession] = await this.db
+      .select()
+      .from(userSessions)
+      .where(eq(userSessions.id, id))
+      .limit(1);
+    return userSession;
+  }
+
+  async updateUserSession(id: number, updates: Partial<UserSession>): Promise<UserSession | undefined> {
+    const [userSession] = await this.db
+      .update(userSessions)
+      .set(updates)
+      .where(eq(userSessions.id, id))
+      .returning();
+    return userSession;
+  }
+
+  async getUserSessionsByUser(userId: number): Promise<UserSession[]> {
+    const sessions = await this.db
+      .select()
+      .from(userSessions)
+      .where(eq(userSessions.userId, userId))
+      .orderBy(desc(userSessions.startedAt));
+    return sessions;
+  }
+
+  async createResponse(insertResponse: InsertResponse): Promise<Response> {
+    const [response] = await this.db
+      .insert(responses)
+      .values(insertResponse)
+      .returning();
+    return response;
+  }
+
+  async getResponsesBySession(sessionId: number): Promise<Response[]> {
+    const sessionResponses = await this.db
+      .select()
+      .from(responses)
+      .where(eq(responses.sessionId, sessionId))
+      .orderBy(responses.timestamp);
+    return sessionResponses;
+  }
+
+  async createAiResponse(insertAiResponse: InsertAiResponse): Promise<AiResponse> {
+    const [aiResponse] = await this.db
+      .insert(aiResponses)
+      .values(insertAiResponse)
+      .returning();
+    return aiResponse;
+  }
+
+  async getAiResponsesBySession(sessionId: number): Promise<AiResponse[]> {
+    const aiResponses = await this.db
+      .select()
+      .from(aiResponses)
+      .where(eq(aiResponses.sessionId, sessionId))
+      .orderBy(aiResponses.timestamp);
+    return aiResponses;
   }
 }
 

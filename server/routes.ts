@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertTestSessionSchema, insertChatMessageSchema, insertUserSchema, insertQuestionSchema } from "@shared/schema";
+import { insertTestSessionSchema, insertChatMessageSchema, insertUserSchema, insertQuestionSchema, insertUserSessionSchema } from "@shared/schema";
 import { getClarificationResponse, generateFollowUpQuestions } from "./services/openai";
 import { transcribeAudio } from "./services/transcription";
 import { gradeAllAnswers, gradeAllAnswersWithFeedback } from "./services/grading";
@@ -1328,6 +1328,280 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: "Failed to update proctoring session" });
     }
   });
+
+  // Version 1 Exam API Routes
+  
+  // Start a new V1 exam session
+  app.post("/api/v1/sessions/start", async (req, res) => {
+    try {
+      if (!req.isAuthenticated() || !req.user) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+
+      const userId = (req.user as any).id;
+      const examId = req.body.examId || 1; // Default to first exam
+      
+      // Get the exam details
+      const exam = await storage.getExam(examId);
+      if (!exam) {
+        return res.status(404).json({ message: "Exam not found" });
+      }
+
+      // Create user session
+      const userSession = await storage.createUserSession({
+        userId,
+        examId,
+        currentStage: 1,
+        questionsAsked: 0,
+        userPath: null,
+        completedAt: null,
+      });
+
+      res.json({
+        ...userSession,
+        exam
+      });
+    } catch (error) {
+      console.error("Error starting V1 exam session:", error);
+      res.status(500).json({ message: "Failed to start exam session" });
+    }
+  });
+
+  // Get V1 exam session details
+  app.get("/api/v1/sessions/:sessionId", async (req, res) => {
+    try {
+      const sessionId = parseInt(req.params.sessionId);
+      const userSession = await storage.getUserSession(sessionId);
+      
+      if (!userSession) {
+        return res.status(404).json({ message: "Session not found" });
+      }
+
+      const exam = await storage.getExam(userSession.examId);
+      
+      res.json({
+        ...userSession,
+        exam
+      });
+    } catch (error) {
+      console.error("Error fetching V1 exam session:", error);
+      res.status(500).json({ message: "Failed to fetch exam session" });
+    }
+  });
+
+  // Get current stage data for V1 exam
+  app.get("/api/v1/stages/:sessionId/:stageNumber", async (req, res) => {
+    try {
+      const sessionId = parseInt(req.params.sessionId);
+      const stageNumber = parseInt(req.params.stageNumber);
+      
+      const userSession = await storage.getUserSession(sessionId);
+      if (!userSession) {
+        return res.status(404).json({ message: "Session not found" });
+      }
+
+      const stageData = await storage.getExamQuestionByStage(userSession.examId, stageNumber);
+      if (!stageData) {
+        return res.status(404).json({ message: "Stage not found" });
+      }
+
+      res.json({
+        stageNumber: stageData.stageNumber,
+        promptText: stageData.promptText,
+        stageType: stageData.stageType
+      });
+    } catch (error) {
+      console.error("Error fetching stage data:", error);
+      res.status(500).json({ message: "Failed to fetch stage data" });
+    }
+  });
+
+  // Get dialogue messages for V1 exam
+  app.get("/api/v1/messages/:sessionId", async (req, res) => {
+    try {
+      const sessionId = parseInt(req.params.sessionId);
+      
+      const userResponses = await storage.getResponsesBySession(sessionId);
+      const aiResponses = await storage.getAiResponsesBySession(sessionId);
+      
+      // Combine and sort messages by timestamp
+      const allMessages = [
+        ...userResponses.map(r => ({
+          id: r.id,
+          sessionId: r.sessionId,
+          stageNumber: r.stageNumber,
+          responseText: r.responseText,
+          pathType: null,
+          timestamp: r.timestamp,
+          isUser: true
+        })),
+        ...aiResponses.map(r => ({
+          id: r.id,
+          sessionId: r.sessionId,
+          stageNumber: r.stageNumber,
+          responseText: r.responseText,
+          pathType: r.pathType,
+          timestamp: r.timestamp,
+          isUser: false
+        }))
+      ].sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+
+      res.json(allMessages);
+    } catch (error) {
+      console.error("Error fetching messages:", error);
+      res.status(500).json({ message: "Failed to fetch messages" });
+    }
+  });
+
+  // Submit response for V1 exam
+  app.post("/api/v1/responses/submit", async (req, res) => {
+    try {
+      const { sessionId, stageNumber, responseText, responseType } = req.body;
+      
+      if (!sessionId || !stageNumber || !responseText || !responseType) {
+        return res.status(400).json({ message: "Missing required fields" });
+      }
+
+      // Store user response
+      const userResponse = await storage.createResponse({
+        sessionId,
+        stageNumber,
+        responseText,
+        responseType,
+        aiEvaluation: null,
+        score: null
+      });
+
+      // Process with AI and generate response
+      const aiResponse = await processV1Response(sessionId, stageNumber, responseText, responseType);
+      
+      res.json({
+        userResponse,
+        aiResponse
+      });
+    } catch (error) {
+      console.error("Error submitting V1 response:", error);
+      res.status(500).json({ message: "Failed to submit response" });
+    }
+  });
+
+  // Process V1 response with AI
+  async function processV1Response(sessionId: number, stageNumber: number, responseText: string, responseType: string) {
+    try {
+      // Get session details
+      const userSession = await storage.getUserSession(sessionId);
+      if (!userSession) {
+        throw new Error("Session not found");
+      }
+
+      let aiResponseText = "";
+      let pathType = null;
+      let evaluation = null;
+      let score = null;
+
+      // Process based on stage type
+      if (responseType === 'assumption') {
+        // Stage 1: Evaluate assumptions
+        evaluation = await evaluateAssumptions(responseText);
+        score = evaluation.score;
+        aiResponseText = `Thank you for your assumptions. ${evaluation.feedback} Now, let's move to the next stage.`;
+        
+        // Update session to stage 2
+        await storage.updateUserSession(sessionId, { 
+          currentStage: 2,
+          questionsAsked: userSession.questionsAsked + 1 
+        });
+        
+      } else if (responseType === 'questioning') {
+        // Stage 2: Categorize question and determine path
+        const questionAnalysis = await categorizeQuestion(responseText);
+        pathType = questionAnalysis.path;
+        
+        // Update session with determined path
+        await storage.updateUserSession(sessionId, { 
+          currentStage: 3,
+          questionsAsked: userSession.questionsAsked + 1,
+          userPath: pathType 
+        });
+        
+        aiResponseText = generatePathResponse(pathType, questionAnalysis.reasoning);
+        
+      } else if (responseType === 'synthesis') {
+        // Stage 3: Final synthesis evaluation
+        evaluation = await evaluateSynthesis(responseText, userSession.userPath);
+        score = evaluation.score;
+        aiResponseText = `Excellent synthesis! ${evaluation.feedback}`;
+        
+        // Mark session as completed
+        await storage.updateUserSession(sessionId, { 
+          completedAt: new Date().toISOString() 
+        });
+      }
+
+      // Store AI response
+      const aiResponse = await storage.createAiResponse({
+        sessionId,
+        stageNumber,
+        responseText: aiResponseText,
+        pathType
+      });
+
+      // Update user response with evaluation if available
+      if (evaluation) {
+        await storage.createResponse({
+          sessionId,
+          stageNumber,
+          responseText: responseText,
+          responseType: responseType,
+          aiEvaluation: JSON.stringify(evaluation),
+          score: score
+        });
+      }
+
+      return aiResponse;
+    } catch (error) {
+      console.error("Error processing V1 response:", error);
+      throw error;
+    }
+  }
+
+  // AI evaluation functions
+  async function evaluateAssumptions(assumptionsText: string) {
+    // Placeholder for AI evaluation - would use OpenAI API
+    return {
+      score: Math.floor(Math.random() * 5) + 6, // 6-10 range
+      feedback: "Your assumptions show good critical thinking. Consider exploring deeper historical implications."
+    };
+  }
+
+  async function categorizeQuestion(questionText: string) {
+    // Placeholder for AI categorization - would use OpenAI API
+    const paths = ['PATH_A', 'PATH_B', 'PATH_C'];
+    const randomPath = paths[Math.floor(Math.random() * paths.length)];
+    
+    return {
+      path: randomPath,
+      reasoning: `Your question demonstrates ${randomPath === 'PATH_A' ? 'surface-level' : randomPath === 'PATH_B' ? 'systemic' : 'epistemological'} thinking.`
+    };
+  }
+
+  async function evaluateSynthesis(synthesisText: string, userPath: string | null) {
+    // Placeholder for AI evaluation - would use OpenAI API
+    return {
+      score: Math.floor(Math.random() * 5) + 6, // 6-10 range
+      feedback: `Your synthesis effectively integrates your ${userPath || 'analytical'} approach with the historical evidence.`
+    };
+  }
+
+  function generatePathResponse(pathType: string, reasoning: string) {
+    const responses = {
+      'PATH_A': "Based on your question focus, here's additional factual information that might help...",
+      'PATH_B': "Your systemic thinking approach is valuable. Consider these broader implications...",
+      'PATH_C': "Your epistemological inquiry is thought-provoking. Let's explore the fundamental assumptions..."
+    };
+    
+    return responses[pathType as keyof typeof responses] || "Thank you for your question. Let's continue...";
+  }
 
   const httpServer = createServer(app);
   return httpServer;

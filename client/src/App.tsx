@@ -9,6 +9,7 @@ import Login from "@/pages/login";
 import Rankings from "@/pages/rankings";
 import Account from "@/pages/account";
 import ExamPrep from "@/pages/exam-prep";
+import ExamV1 from "@/pages/exam-v1";
 
 function Router() {
   return (
@@ -17,6 +18,7 @@ function Router() {
       <Route path="/login" component={Login} />
       <Route path="/account" component={Account} />
       <Route path="/exam-prep/:sessionId" component={ExamPrep} />
+      <Route path="/exam-v1/:sessionId" component={ExamV1} />
       <Route path="/test" component={TestPlatform} />
       <Route path="/test-platform" component={() => { window.location.href = '/test'; return null; }} />
       <Route path="/rankings" component={Rankings} />

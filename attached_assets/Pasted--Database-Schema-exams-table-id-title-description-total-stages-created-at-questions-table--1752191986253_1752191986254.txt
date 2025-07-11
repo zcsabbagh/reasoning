@@ -1,0 +1,150 @@
+. Database Schema:
+exams table:
+- id, title, description, total_stages, created_at
+
+questions table:
+- id, exam_id, stage_number, prompt_text, stage_type (assumption/questioning/synthesis)
+
+user_sessions table:
+- id, user_id, exam_id, current_stage, questions_asked, user_path, started_at, completed_at
+
+responses table:
+- id, session_id, stage_number, response_text, response_type, timestamp, ai_evaluation, score
+
+ai_responses table:
+- id, session_id, stage_number, response_text, path_type, timestamp
+2. API Endpoints:
+
+POST /api/sessions/start - Initialize exam session
+POST /api/responses/submit - Submit user response and trigger AI evaluation
+GET /api/sessions/{id}/current - Get current stage data
+POST /api/ai/evaluate - Send response to LLM for scoring and path determination
+
+Frontend Component Structure
+Main Container:
+
+Fixed header with progress indicators
+Scrollable dialogue area (takes remaining vertical space)
+Fixed input area at bottom
+
+Header Components:
+
+Exam title (left side)
+Stage indicator showing current stage name (center)
+Question counter showing "Questions: X/3" (right side)
+Timer if implementing time limits
+
+Dialogue Area:
+
+Scrollable container with message bubbles
+System messages (AI prompts/responses) - left aligned
+User responses - right aligned, distinct styling
+Auto-scroll to bottom when new messages appear
+Loading indicators when waiting for AI response
+
+Input Area Layout:
+
+Text input field (multiline textarea, expandable)
+Microphone button positioned at bottom-right corner of textarea
+Submit button to the right of input field
+Word counter below input field
+Quality hints/tips below word counter (contextual based on stage)
+
+Voice Input Implementation
+Microphone Button Placement:
+Position microphone button as an overlay icon in the bottom-right corner of the textarea input field. Button should:
+
+Be circular, small (24px diameter)
+Sit 8px from right edge, 8px from bottom edge of textarea
+Change color/animation when recording
+Include visual feedback (pulsing animation during recording)
+Show tooltip "Hold to record" on hover
+
+Voice Integration:
+
+Use Web Speech API for speech-to-text
+Implement push-to-talk (hold button) or click-to-toggle recording
+Display real-time transcription in the textarea as user speaks
+Include "Clear" option to restart voice input
+Fallback gracefully if speech recognition not supported
+
+Progressive Logic Flow
+Stage 1: Assumption Identification
+
+Display initial scenario prompt
+Collect user's 3 assumptions
+Send to LLM with prompt: "Evaluate these assumptions for depth, originality, and relevance. Score 1-10 and provide brief feedback."
+Store evaluation score
+
+Stage 2: Strategic Questioning
+
+Reveal additional scenario details
+User submits one strategic question
+Send question to LLM with prompt: "Categorize this question as Path A (surface-level), Path B (systemic), or Path C (epistemological). Provide reasoning."
+Route user to appropriate information path
+Generate tailored response based on path
+
+Stage 3+: Adaptive Progression
+
+Continue dialogue based on determined path
+Each subsequent question adjusts available information
+Final synthesis prompt varies by path taken
+Generate final score based on entire trajectory
+
+LLM Integration Requirements
+Evaluation Prompt Templates:
+Store these as database records or config files:
+assumption_evaluator: "You are evaluating student assumptions about a historical scenario. Rate each assumption 1-10 for: depth (surface vs fundamental), originality (obvious vs non-obvious), relevance (impacts analysis vs tangential). Return JSON with scores and brief explanations."
+
+question_categorizer: "Categorize this student question as: PATH_A (what/when/where - surface facts), PATH_B (why/how - systemic understanding), PATH_C (epistemological - questioning premises). Return path and reasoning."
+
+response_generator: "Generate the next stage response based on student path and question quality. Include: information reveal, follow-up prompt, and quality assessment of student's inquiry approach."
+API Integration:
+
+Configure LLM API key in environment variables
+Implement retry logic for failed API calls
+Cache responses to avoid duplicate API calls
+Include conversation context in each LLM request
+
+Session Management
+Data Persistence:
+
+Store all user inputs and AI responses
+Track progression through stages
+Save current state for session resumption
+Log timestamps for all interactions
+
+Progress Tracking:
+
+Update progress indicators after each stage
+Calculate and store intermediate scores
+Track which path user is on
+Monitor question quality trends
+
+User Experience Flow
+1. Landing/Login:
+
+User enters name/email for session tracking
+Brief instructions about exam format
+Start button to begin
+
+2. Progressive Stages:
+
+Each stage waits for user input before revealing next
+Visual transitions between stages
+Loading states while AI processes responses
+Clear indication of current requirements
+
+3. Input Validation:
+
+Minimum word counts for responses
+Prevent empty submissions
+Real-time character/word counting
+Save draft responses automatically
+
+4. Final Results:
+
+Show complete dialogue history
+Display final score and breakdown
+Path visualization showing decision points
+Option to review AI evaluations
